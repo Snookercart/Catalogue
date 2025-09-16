@@ -1,0 +1,195 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Offline 3D Flipbook - Apex Sports Catalogue</title>
+<style>
+:root{--page-width:900px; --page-height:1200px;}
+body{font-family:system-ui,Segoe UI,Roboto,Arial; background:#222; color:#fff; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;}
+#book-wrap{width:calc(var(--page-width) * 1.02); height:calc(var(--page-height) * 1.02); perspective:2000px; position:relative;}
+.book{width:var(--page-width); height:var(--page-height); position:relative; transform-style:preserve-3d;}
+.page{width:50%; height:100%; position:absolute; top:0; transform-style:preserve-3d; transform-origin:left center; transition:transform 0.9s cubic-bezier(.2,.8,.2,1); box-shadow:0 6px 18px rgba(0,0,0,0.6);}
+.face{position:absolute; width:100%; height:100%; backface-visibility:hidden; overflow:hidden; border:1px solid #ddd;}
+.face img{width:100%; height:100%; object-fit:contain; display:block;}
+.back{transform:rotateY(180deg); background:#fff;}
+.page.flipped{transform:rotateY(-180deg);}
+.left{left:0; transform-origin:left center;}
+.right{left:50%; transform-origin:left center;}
+.controls{position:fixed; right:20px; bottom:20px; display:flex; gap:8px;}
+.btn{background:#fff; color:#000; padding:10px 14px; border-radius:6px; cursor:pointer; user-select:none;}
+.info{position:fixed; left:20px; bottom:20px; background:rgba(255,255,255,0.06); padding:10px 12px; border-radius:6px;}
+@media (max-width:1100px){:root{--page-width:640px; --page-height:880px;}}
+@media (max-width:700px){:root{--page-width:320px; --page-height:440px;}}
+</style>
+</head>
+<body>
+<div id="book-wrap">
+  <div class="book" id="book">
+
+    <div class="page right" data-sheet="0" style="z-index:24">
+      <div class="face front"><img src="./page_002.png" alt="page"></div>
+      <div class="face back"><img src="./page_001.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="1" style="z-index:23">
+      <div class="face front"><img src="./page_004.png" alt="page"></div>
+      <div class="face back"><img src="./page_003.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="2" style="z-index:22">
+      <div class="face front"><img src="./page_006.png" alt="page"></div>
+      <div class="face back"><img src="./page_005.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="3" style="z-index:21">
+      <div class="face front"><img src="./page_008.png" alt="page"></div>
+      <div class="face back"><img src="./page_007.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="4" style="z-index:20">
+      <div class="face front"><img src="./page_010.png" alt="page"></div>
+      <div class="face back"><img src="./page_009.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="5" style="z-index:19">
+      <div class="face front"><img src="./page_012.png" alt="page"></div>
+      <div class="face back"><img src="./page_011.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="6" style="z-index:18">
+      <div class="face front"><img src="./page_014.png" alt="page"></div>
+      <div class="face back"><img src="./page_013.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="7" style="z-index:17">
+      <div class="face front"><img src="./page_016.png" alt="page"></div>
+      <div class="face back"><img src="./page_015.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="8" style="z-index:16">
+      <div class="face front"><img src="./page_018.png" alt="page"></div>
+      <div class="face back"><img src="./page_017.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="9" style="z-index:15">
+      <div class="face front"><img src="./page_020.png" alt="page"></div>
+      <div class="face back"><img src="./page_019.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="10" style="z-index:14">
+      <div class="face front"><img src="./page_022.png" alt="page"></div>
+      <div class="face back"><img src="./page_021.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="11" style="z-index:13">
+      <div class="face front"><img src="./page_024.png" alt="page"></div>
+      <div class="face back"><img src="./page_023.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="12" style="z-index:12">
+      <div class="face front"><img src="./page_026.png" alt="page"></div>
+      <div class="face back"><img src="./page_025.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="13" style="z-index:11">
+      <div class="face front"><img src="./page_028.png" alt="page"></div>
+      <div class="face back"><img src="./page_027.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="14" style="z-index:10">
+      <div class="face front"><img src="./page_030.png" alt="page"></div>
+      <div class="face back"><img src="./page_029.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="15" style="z-index:9">
+      <div class="face front"><img src="./page_032.png" alt="page"></div>
+      <div class="face back"><img src="./page_031.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="16" style="z-index:8">
+      <div class="face front"><img src="./page_034.png" alt="page"></div>
+      <div class="face back"><img src="./page_033.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="17" style="z-index:7">
+      <div class="face front"><img src="./page_036.png" alt="page"></div>
+      <div class="face back"><img src="./page_035.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="18" style="z-index:6">
+      <div class="face front"><img src="./page_038.png" alt="page"></div>
+      <div class="face back"><img src="./page_037.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="19" style="z-index:5">
+      <div class="face front"><img src="./page_040.png" alt="page"></div>
+      <div class="face back"><img src="./page_039.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="20" style="z-index:4">
+      <div class="face front"><img src="./page_042.png" alt="page"></div>
+      <div class="face back"><img src="./page_041.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="21" style="z-index:3">
+      <div class="face front"><img src="./page_044.png" alt="page"></div>
+      <div class="face back"><img src="./page_043.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="22" style="z-index:2">
+      <div class="face front"><img src="./page_046.png" alt="page"></div>
+      <div class="face back"><img src="./page_045.png" alt="page"></div>
+    </div>
+    
+    <div class="page right" data-sheet="23" style="z-index:1">
+      <div class="face front"><img src="./page_048.png" alt="page"></div>
+      <div class="face back"><img src="./page_047.png" alt="page"></div>
+    </div>
+    
+  </div>
+</div>
+<div class="controls">
+  <div class="btn" id="prev">Prev</div>
+  <div class="btn" id="next">Next</div>
+</div>
+<div class="info" id="pagenum">Page 1 / 48</div>
+<script>
+const pages = Array.from(document.querySelectorAll('.page'));
+const totalSheets = pages.length;
+const totalPages = 48;
+let currentSheet = 0;
+function updatePageNum(){
+  const p = Math.min(totalPages, currentSheet*2 + 1);
+  document.getElementById('pagenum').textContent = `Page ${p} / ${totalPages}`;
+}
+function goNext(){
+  if(currentSheet >= totalSheets) return;
+  const sheet = pages[currentSheet];
+  if(sheet){
+    sheet.classList.add('flipped');
+    currentSheet++;
+    updatePageNum();
+  }
+}
+function goPrev(){
+  if(currentSheet <= 0) return;
+  currentSheet--;
+  const sheet = pages[currentSheet];
+  if(sheet){
+    sheet.classList.remove('flipped');
+    updatePageNum();
+  }
+}
+document.getElementById('next').addEventListener('click', goNext);
+document.getElementById('prev').addEventListener('click', goPrev);
+document.getElementById('book-wrap').addEventListener('click', (e)=>{
+  const rect = document.getElementById('book-wrap').getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  if(x > rect.width * 0.6) goNext(); else goPrev();
+});
+updatePageNum();
+</script>
+</body>
+</html>
