@@ -1,10 +1,9 @@
 {
-  "name": "Apex Sports Catalogue",
+  "name": "Snookercart Catalogue",
   "short_name": "Catalogue",
-  "start_url": "/catalogue/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
-  "scope": "/catalogue/"
-  "background_color": "#000000",
+  "background_color": "#ffffff",
   "theme_color": "#000000",
   "icons": [
     {
