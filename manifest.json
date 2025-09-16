@@ -1,7 +1,7 @@
 {
   "name": "Apex Sports Catalogue",
   "short_name": "Catalogue",
-  "start_url": "./index.html",
+  "start_url": "/catalogue/index.html",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
