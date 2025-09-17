@@ -105,17 +105,30 @@
     document.getElementById("prev").onclick = () => $("#flipbook").turn("previous");
 
     // Fullscreen specific to flipbook
-    document.getElementById("full").onclick = () => {
+    function openFullscreen() {
       const flipbook = document.getElementById("flipbook");
       if (flipbook.requestFullscreen) flipbook.requestFullscreen();
       else if (flipbook.webkitRequestFullscreen) flipbook.webkitRequestFullscreen();
       else if (flipbook.msRequestFullscreen) flipbook.msRequestFullscreen();
-    };
+    }
 
-    // Exit fullscreen
+    // Normal (exit fullscreen)
     document.getElementById("normal").onclick = () => {
       if (document.exitFullscreen) document.exitFullscreen();
     };
+    document.getElementById("full").onclick = openFullscreen;
+
+    // Auto fullscreen on mobile
+    function isMobile() {
+      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+    if (isMobile()) {
+      // Require a first tap (browser policy)
+      document.addEventListener("touchstart", function autoFull() {
+        openFullscreen();
+        document.removeEventListener("touchstart", autoFull);
+      });
+    }
 
     // Auto-hide arrows + controls
     const arrows = document.querySelectorAll('.arrow');
@@ -129,31 +142,25 @@
       hideTimeout = setTimeout(() => {
         arrows.forEach(a => a.classList.add('hidden'));
         controls.classList.add('hidden');
-      }, 2000); // hide after 2 seconds
+      }, 2000); // hide after 2s
     }
 
-    // Show UI on activity
     document.addEventListener('mousemove', showUI);
     document.addEventListener('touchstart', showUI);
 
-    // Start hiding after load
     showUI();
 
-    // Swipe support for mobile
+    // Swipe support
     let startX = 0;
-    document.getElementById("flipbook").addEventListener("touchstart", function(e) {
+    document.getElementById("flipbook").addEventListener("touchstart", e => {
       startX = e.touches[0].clientX;
     });
-
-    document.getElementById("flipbook").addEventListener("touchend", function(e) {
+    document.getElementById("flipbook").addEventListener("touchend", e => {
       let endX = e.changedTouches[0].clientX;
       let diffX = endX - startX;
-      if (Math.abs(diffX) > 50) { // minimum swipe distance
-        if (diffX < 0) {
-          $("#flipbook").turn("next"); // swipe left → next page
-        } else {
-          $("#flipbook").turn("previous"); // swipe right → previous page
-        }
+      if (Math.abs(diffX) > 50) {
+        if (diffX < 0) $("#flipbook").turn("next");
+        else $("#flipbook").turn("previous");
       }
     });
   </script>
