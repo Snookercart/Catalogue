@@ -13,13 +13,19 @@
       align-items: center;
       height: 100vh;
       overflow: hidden;
+      flex-direction: column;
     }
     #book {
       position: relative;
-      width: 90vw;
+      width: 100vw;   /* default fullpage */
+      height: 100vh;
+      perspective: 2000px;
+      transition: all 0.5s ease;
+    }
+    #book.normal {
+      width: 90vw;   /* smaller view */
       max-width: 1000px;
       height: 90vh;
-      perspective: 2000px;
     }
     .page {
       position: absolute;
@@ -50,6 +56,24 @@
     }
     .nav.left { left: 0; }
     .nav.right { right: 0; }
+
+    /* Bottom control button */
+    .controls {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+    }
+    .btn {
+      padding: 8px 14px;
+      border: none;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -57,12 +81,17 @@
   <div class="nav left"></div>
   <div class="nav right"></div>
 
+  <div class="controls">
+    <button class="btn" id="toggleView">Normal View</button>
+  </div>
+
 <script>
   const totalPages = 10; // number of pages
   const book = document.getElementById("book");
+  const toggleBtn = document.getElementById("toggleView");
   let current = 0;
 
-  // ✅ Create pages with page_001.png as top/front cover
+  // ✅ Create pages dynamically
   for (let i = 1; i <= totalPages; i++) {
     const page = document.createElement("div");
     page.className = "page";
@@ -79,14 +108,14 @@
 
     pages.forEach((page, idx) => {
       if (idx < n) {
-        page.classList.add("flipped"); // flipped
+        page.classList.add("flipped");
       } else {
-        page.classList.remove("flipped"); // not yet flipped
+        page.classList.remove("flipped");
       }
     });
   }
 
-  // Navigation clicks
+  // Click navigation
   document.querySelector(".nav.right").addEventListener("click", () => {
     if (current < totalPages) showPage(current + 1);
   });
@@ -95,8 +124,7 @@
   });
 
   // Swipe navigation
-  let startX = 0;
-  let endX = 0;
+  let startX = 0, endX = 0;
   document.addEventListener("touchstart", (e) => {
     startX = e.changedTouches[0].screenX;
   });
@@ -112,7 +140,18 @@
     }
   });
 
-  // ✅ Start with first page visible (page_001.png)
+  // ✅ Toggle between Fullpage and Normal view
+  toggleBtn.addEventListener("click", () => {
+    if (book.classList.contains("normal")) {
+      book.classList.remove("normal");
+      toggleBtn.textContent = "Normal View";
+    } else {
+      book.classList.add("normal");
+      toggleBtn.textContent = "Full Page";
+    }
+  });
+
+  // ✅ Start on first page
   showPage(0);
 </script>
 </body>
