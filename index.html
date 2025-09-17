@@ -1,146 +1,37 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Catalogue Flipbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8">
+  <title>Flipbook Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    html,body {margin:0; height:100%; background:#fff; overflow:hidden;}
-    #container {width:100vw; height:100vh; display:flex; align-items:center; justify-content:center;}
-    #flipbook {background:#fff;}
-    #flipbook .page {background:#fff;}
-    #flipbook .page img {width:100%; height:100%; object-fit:contain; display:block;}
-
-    /* navigation arrows */
-    .arrow {
-      position:absolute; top:50%; transform:translateY(-50%);
-      width:56px; height:56px; border-radius:50%;
-      display:flex; align-items:center; justify-content:center;
-      background:rgba(0,0,0,0.35); color:#fff; font-size:34px; cursor:pointer;
-      user-select:none; transition:opacity .25s;
-    }
-    .arrow-left { left:18px; }
-    .arrow-right { right:18px; }
-    .hidden { opacity:0; pointer-events:none; }
-    .visible { opacity:0.9; }
-
-    /* fullscreen button */
-    #fullscreenBtn {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-    }
+    body { margin:0; background:#fff; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
+    #flipbook { width:90vw; height:90vh; }
+    #flipbook .page { background:white; }
+    #flipbook .page img { width:100%; height:100%; object-fit:contain; }
   </style>
-
-  <!-- jQuery + turn.js -->
+  <!-- jQuery + Turn.js (official) -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
 </head>
 <body>
-  <div id="container">
-    <div id="flipbook">
-      <div class="page"><img src="page_001.png"></div>
-      <div class="page"><img src="page_002.png"></div>
-      <div class="page"><img src="page_003.png"></div>
-      <div class="page"><img src="page_004.png"></div>
-      <div class="page"><img src="page_005.png"></div>
-      <div class="page"><img src="page_006.png"></div>
-      <div class="page"><img src="page_007.png"></div>
-      <div class="page"><img src="page_008.png"></div>
-      <div class="page"><img src="page_009.png"></div>
-      <div class="page"><img src="page_010.png"></div>
-    </div>
+  <div id="flipbook">
+    <div class="page"><img src="page_001.png"></div>
+    <div class="page"><img src="page_002.png"></div>
+    <div class="page"><img src="page_003.png"></div>
+    <div class="page"><img src="page_004.png"></div>
   </div>
 
-  <!-- arrows -->
-  <div class="arrow arrow-left visible" id="prev">&#10094;</div>
-  <div class="arrow arrow-right visible" id="next">&#10095;</div>
-  <!-- fullscreen button -->
-  <button id="fullscreenBtn">Fullscreen</button>
-
-<script>
-(function(){
-  const $flip = $('#flipbook');
-  const $prev = $('#prev'), $next = $('#next');
-  let inited = false, zoomed = false, lastTap = 0;
-
-  function getConfig() {
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const display = (vw >= 900) ? 'double' : 'single';
-    return {
-      width: Math.floor(vw*0.95),
-      height: Math.floor(vh*0.9),
-      display
-    };
-  }
-
-  function initFlipbook() {
-    const cfg = getConfig();
-    if ($flip.data('turn')) $flip.turn('destroy');
-    $flip.css({width:cfg.width, height:cfg.height});
-    $flip.find('.page').css({width:cfg.width, height:cfg.height});
-    $flip.turn({
-      width: cfg.width,
-      height: cfg.height,
-      display: cfg.display,
-      autoCenter:true,
-      duration: 900,
-      gradients:true,
-      elevation:50
+  <script>
+    $(function(){
+      $("#flipbook").turn({
+        width: "90vw",
+        height: "90vh",
+        autoCenter: true,
+        display: "double",  // single page if mobile
+        duration: 800
+      });
     });
-    inited = true;
-  }
-
-  // resize handling
-  window.addEventListener('resize', ()=> { if(inited) initFlipbook(); });
-
-  // nav
-  $next.on('click', ()=> $flip.turn('next'));
-  $prev.on('click', ()=> $flip.turn('previous'));
-
-  // swipe
-  let startX=null;
-  $flip.on('touchstart', e=> startX = e.originalEvent.touches[0].clientX);
-  $flip.on('touchend', e=>{
-    if(startX===null) return;
-    let dx = e.originalEvent.changedTouches[0].clientX - startX;
-    startX=null;
-    if(Math.abs(dx)>40) { if(dx<0) $flip.turn('next'); else $flip.turn('previous'); }
-  });
-
-  // double tap zoom
-  $flip.on('touchend', e=>{
-    const now = Date.now();
-    if(now-lastTap<300){ // double tap
-      zoomed = !zoomed;
-      if(zoomed){
-        $flip.css({transform:'scale(1.8)', transformOrigin:'center center'});
-      } else {
-        $flip.css({transform:'scale(1)', transformOrigin:'center center'});
-      }
-    }
-    lastTap = now;
-  });
-
-  // fullscreen
-  document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
-    let el = document.documentElement;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen().catch(err=>console.log(err));
-    } else {
-      document.exitFullscreen();
-    }
-  });
-
-  initFlipbook();
-})();
-</script>
+  </script>
 </body>
 </html>
