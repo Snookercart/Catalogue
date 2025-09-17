@@ -1,43 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, maximum-scale=5">
+  <meta charset="UTF-8">
+  <title>Catalogue Flipbook</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
   <style>
     body {
       margin: 0;
+      background: #fff;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
       height: 100vh;
-      background: #fff;
       overflow: hidden;
-      font-family: Arial, sans-serif;
     }
-    #viewer {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      max-width: 1100px;
-      overflow: hidden;
-      perspective: 2000px;
-      background: #fff;
+    #flipbook {
+      width: 90%;
+      height: 90%;
+      margin-top: 10px;
     }
-    img {
+    #flipbook img {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      transition: transform 0.6s ease;
-      transform-origin: left center;
-      position: absolute;
-      top: 0;
-      left: 0;
-      backface-visibility: hidden;
     }
     .controls {
-      position: absolute;
-      bottom: 15px;
-      left: 50%;
-      transform: translateX(-50%);
+      margin: 10px 0;
       display: flex;
       gap: 10px;
     }
@@ -50,100 +40,83 @@
       color: #fff;
       font-size: 14px;
     }
-    .page-indicator {
+    /* Arrows */
+    .arrow {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 5px;
-      font-size: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 48px;
+      color: white;
+      background: rgba(0,0,0,0.3);
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
     }
+    .arrow-left { left: 20px; }
+    .arrow-right { right: 20px; }
   </style>
 </head>
 <body>
-  <div id="viewer">
-    <img id="catalogue" src="page_001.png" alt="Catalogue Page">
-    <div class="page-indicator" id="pageIndicator">1 / 10</div>
-    <div class="controls">
-      <button class="btn" id="prev">⬅ Prev</button>
-      <button class="btn" id="next">Next ➡</button>
-      <button class="btn" id="full">Full View</button>
-      <button class="btn" id="normal">Normal</button>
-    </div>
+  <div id="flipbook">
+    <div><img src="page_001.png"></div>
+    <div><img src="page_002.png"></div>
+    <div><img src="page_003.png"></div>
+    <div><img src="page_004.png"></div>
+    <div><img src="page_005.png"></div>
+    <div><img src="page_006.png"></div>
+    <div><img src="page_007.png"></div>
+    <div><img src="page_008.png"></div>
+    <div><img src="page_009.png"></div>
+    <div><img src="page_010.png"></div>
+  </div>
+
+  <!-- Arrows -->
+  <div class="arrow arrow-left" id="prev">&#10094;</div>
+  <div class="arrow arrow-right" id="next">&#10095;</div>
+
+  <div class="controls">
+    <button class="btn" id="full">Full View</button>
+    <button class="btn" id="normal">Normal</button>
   </div>
 
   <script>
-    const img = document.getElementById("catalogue");
-    const pageIndicator = document.getElementById("pageIndicator");
-    let currentPage = 1;
-    const totalPages = 10;
-    let zoomed = false;
+    // Initialize flipbook
+    $("#flipbook").turn({
+      width: 800,
+      height: 600,
+      autoCenter: true,
+      duration: 1000, // slow motion flip
+      elevation: 50,
+      gradients: true,
+    });
 
-    function updatePage(next=true) {
-      const pageNum = String(currentPage).padStart(3, '0');
-      
-      // Flip animation
-      img.style.transform = next ? "rotateY(-90deg)" : "rotateY(90deg)";
-      
-      setTimeout(() => {
-        img.src = `page_${pageNum}.png`;
-        pageIndicator.textContent = `${currentPage} / ${totalPages}`;
-        img.style.transform = "rotateY(0deg)";
-      }, 300);
-    }
+    // Navigation via arrows
+    document.getElementById("next").onclick = () => $("#flipbook").turn("next");
+    document.getElementById("prev").onclick = () => $("#flipbook").turn("previous");
 
-    document.getElementById("next").onclick = () => {
-      if (currentPage < totalPages) {
-        currentPage++;
-        updatePage(true);
-      }
-    };
-    document.getElementById("prev").onclick = () => {
-      if (currentPage > 1) {
-        currentPage--;
-        updatePage(false);
-      }
-    };
-
-    // Full page view
+    // Fullscreen specific to flipbook
     document.getElementById("full").onclick = () => {
-      img.style.transform = "scale(1.5)";
-      zoomed = true;
+      const flipbook = document.getElementById("flipbook");
+      if (flipbook.requestFullscreen) {
+        flipbook.requestFullscreen();
+      } else if (flipbook.webkitRequestFullscreen) {
+        flipbook.webkitRequestFullscreen();
+      } else if (flipbook.msRequestFullscreen) {
+        flipbook.msRequestFullscreen();
+      }
     };
 
-    // Normal view
+    // Exit fullscreen
     document.getElementById("normal").onclick = () => {
-      img.style.transform = "scale(1)";
-      zoomed = false;
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
     };
-
-    // Keyboard navigation
-    document.addEventListener("keydown", e => {
-      if (e.key === "ArrowRight" && currentPage < totalPages) {
-        currentPage++;
-        updatePage(true);
-      }
-      if (e.key === "ArrowLeft" && currentPage > 1) {
-        currentPage--;
-        updatePage(false);
-      }
-    });
-
-    // Swipe navigation for mobile
-    let startX = 0;
-    img.addEventListener("touchstart", e => startX = e.changedTouches[0].screenX);
-    img.addEventListener("touchend", e => {
-      let endX = e.changedTouches[0].screenX;
-      if (endX - startX > 50 && currentPage > 1) {
-        currentPage--;
-        updatePage(false);
-      } else if (startX - endX > 50 && currentPage < totalPages) {
-        currentPage++;
-        updatePage(true);
-      }
-    });
   </script>
 </body>
 </html>
