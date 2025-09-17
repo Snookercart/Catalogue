@@ -5,28 +5,40 @@
   <title>Catalogue Flipbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    :root {
+      --vh: 1vh;
+    }
+
+    body {
       background: #fff;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      overflow: hidden;
       flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto; /* allow vertical scroll if needed */
     }
+
     #book {
       position: relative;
-      width: 100vw;   /* default fullpage */
-      height: 100vh;
+      width: 100vw;
+      height: calc(var(--vh, 1vh) * 100);
       perspective: 2000px;
       transition: all 0.5s ease;
     }
+
     #book.normal {
-      width: 90vw;   /* smaller view */
+      width: 90vw;
       max-width: 1000px;
       height: 90vh;
     }
+
     .page {
       position: absolute;
       width: 100%;
@@ -37,16 +49,18 @@
       transition: transform 1s ease;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
+
     .page img {
       width: 100%;
       height: 100%;
       object-fit: contain;
       display: block;
     }
+
     .page.flipped {
       transform: rotateY(-180deg);
     }
-    /* Navigation zones */
+
     .nav {
       position: absolute;
       top: 0;
@@ -54,17 +68,18 @@
       height: 100%;
       z-index: 100;
     }
+
     .nav.left { left: 0; }
     .nav.right { right: 0; }
 
-    /* Bottom control button */
     .controls {
-      position: absolute;
+      position: fixed;
       bottom: 12px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 200;
     }
+
     .btn {
       padding: 8px 14px;
       border: none;
@@ -85,74 +100,85 @@
     <button class="btn" id="toggleView">Normal View</button>
   </div>
 
-<script>
-  const totalPages = 10; // number of pages
-  const book = document.getElementById("book");
-  const toggleBtn = document.getElementById("toggleView");
-  let current = 0;
+  <script>
+    const totalPages = 10; // number of pages
+    const book = document.getElementById("book");
+    const toggleBtn = document.getElementById("toggleView");
+    let current = 0;
 
-  // ✅ Create pages dynamically
-  for (let i = 1; i <= totalPages; i++) {
-    const page = document.createElement("div");
-    page.className = "page";
-    page.style.zIndex = totalPages - i + 1; // page_001 highest zIndex
-    page.innerHTML = `<img src="page_${String(i).padStart(3,"0")}.png" alt="Page ${i}">`;
-    book.appendChild(page);
-  }
+    // ✅ Create pages dynamically
+    for (let i = 1; i <= totalPages; i++) {
+      const page = document.createElement("div");
+      page.className = "page";
+      page.style.zIndex = totalPages - i + 1;
+      page.innerHTML = `<img src="page_${String(i).padStart(3,"0")}.png" alt="Page ${i}">`;
+      book.appendChild(page);
+    }
 
-  const pages = document.querySelectorAll(".page");
+    const pages = document.querySelectorAll(".page");
 
-  function showPage(n) {
-    if (n < 0 || n > totalPages) return;
-    current = n;
+    function showPage(n) {
+      if (n < 0 || n > totalPages) return;
+      current = n;
 
-    pages.forEach((page, idx) => {
-      if (idx < n) {
-        page.classList.add("flipped");
-      } else {
-        page.classList.remove("flipped");
+      pages.forEach((page, idx) => {
+        if (idx < n) {
+          page.classList.add("flipped");
+        } else {
+          page.classList.remove("flipped");
+        }
+      });
+    }
+
+    // Navigation
+    document.querySelector(".nav.right").addEventListener("click", () => {
+      if (current < totalPages) showPage(current + 1);
+    });
+
+    document.querySelector(".nav.left").addEventListener("click", () => {
+      if (current > 0) showPage(current - 1);
+    });
+
+    // Swipe navigation
+    let startX = 0, endX = 0;
+    document.addEventListener("touchstart", (e) => {
+      startX = e.changedTouches[0].screenX;
+    });
+
+    document.addEventListener("touchend", (e) => {
+      endX = e.changedTouches[0].screenX;
+      const diff = endX - startX;
+      if (Math.abs(diff) > 50) {
+        if (diff < 0 && current < totalPages) {
+          showPage(current + 1);
+        } else if (diff > 0 && current > 0) {
+          showPage(current - 1);
+        }
       }
     });
-  }
 
-  // Click navigation
-  document.querySelector(".nav.right").addEventListener("click", () => {
-    if (current < totalPages) showPage(current + 1);
-  });
-  document.querySelector(".nav.left").addEventListener("click", () => {
-    if (current > 0) showPage(current - 1);
-  });
-
-  // Swipe navigation
-  let startX = 0, endX = 0;
-  document.addEventListener("touchstart", (e) => {
-    startX = e.changedTouches[0].screenX;
-  });
-  document.addEventListener("touchend", (e) => {
-    endX = e.changedTouches[0].screenX;
-    const diff = endX - startX;
-    if (Math.abs(diff) > 50) {
-      if (diff < 0 && current < totalPages) {
-        showPage(current + 1); // swipe left → next
-      } else if (diff > 0 && current > 0) {
-        showPage(current - 1); // swipe right → prev
+    // Toggle Full Page / Normal View
+    toggleBtn.addEventListener("click", () => {
+      if (book.classList.contains("normal")) {
+        book.classList.remove("normal");
+        toggleBtn.textContent = "Normal View";
+      } else {
+        book.classList.add("normal");
+        toggleBtn.textContent = "Full Page";
       }
-    }
-  });
+    });
 
-  // ✅ Toggle between Fullpage and Normal view
-  toggleBtn.addEventListener("click", () => {
-    if (book.classList.contains("normal")) {
-      book.classList.remove("normal");
-      toggleBtn.textContent = "Normal View";
-    } else {
-      book.classList.add("normal");
-      toggleBtn.textContent = "Full Page";
+    // ✅ Handle 100vh issue on mobile
+    function setViewportHeight() {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
     }
-  });
 
-  // ✅ Start on first page
-  showPage(0);
-</script>
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+
+    // Start on first page
+    showPage(0);
+  </script>
 </body>
 </html>
