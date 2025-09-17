@@ -2,34 +2,54 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Flipbook Test</title>
+  <title>Flipbook Working</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { margin:0; background:#fff; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
-    #flipbook { width:90vw; height:90vh; }
-    #flipbook .page { background:white; }
-    #flipbook .page img { width:100%; height:100%; object-fit:contain; }
+    body {
+      margin: 0;
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #flipbook {
+      width: 800px;
+      height: 600px;
+    }
+    #flipbook .page {
+      background: white;
+    }
+    #flipbook .page img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
   </style>
-  <!-- jQuery + Turn.js (official) -->
+  <!-- ✅ Use a working Turn.js CDN -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js/turn.min.js"></script>
 </head>
 <body>
   <div id="flipbook">
-    <div class="page"><img src="page_001.png"></div>
-    <div class="page"><img src="page_002.png"></div>
-    <div class="page"><img src="page_003.png"></div>
-    <div class="page"><img src="page_004.png"></div>
+    <div class="page"><img src="page_001.png" alt="Page 1"></div>
+    <div class="page"><img src="page_002.png" alt="Page 2"></div>
+    <div class="page"><img src="page_003.png" alt="Page 3"></div>
+    <div class="page"><img src="page_004.png" alt="Page 4"></div>
   </div>
 
   <script>
     $(function(){
       $("#flipbook").turn({
-        width: "90vw",
-        height: "90vh",
+        width: 800,
+        height: 600,
         autoCenter: true,
-        display: "double",  // single page if mobile
-        duration: 800
+        display: 'double',
+        duration: 1000,
+        gradients: true,
+        elevation: 50
       });
     });
   </script>
