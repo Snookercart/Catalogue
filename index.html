@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Catalogue Flipbook</title>
+  <title>Flipbook with Pinch + Pan</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -12,6 +12,7 @@
       height: 100%;
       background: #fff;
       overflow: hidden;
+      touch-action: none; /* disable default touch actions globally if needed */
     }
 
     :root {
@@ -31,6 +32,7 @@
       height: calc(var(--vh, 1vh) * 100);
       perspective: 2000px;
       transition: all 0.5s ease;
+      touch-action: none;
     }
 
     #book.normal {
@@ -49,12 +51,19 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
       background: white;
       overflow: hidden;
+      touch-action: none;
     }
 
     .page-inner {
       width: 100%;
       height: 100%;
-      touch-action: none; /* required for panzoom */
+      /* allow pan and pinch gestures on inner container */
+      touch-action: none;  
+      /* no overflow so pan zoom doesn't clip early */
+    }
+
+    .page.flipped {
+      transform: rotateY(-180deg);
     }
 
     .page img {
@@ -62,10 +71,10 @@
       height: 100%;
       object-fit: contain;
       display: block;
-    }
-
-    .page.flipped {
-      transform: rotateY(-180deg);
+      user-select: none;
+      /* maybe disable dragging image default behavior */
+      -webkit-user-drag: none;
+      touch-action: none;
     }
 
     .nav {
@@ -96,15 +105,6 @@
       border-radius: 6px;
       cursor: pointer;
     }
-
-    :fullscreen .controls {
-      opacity: 0.3;
-      transition: opacity 0.3s;
-    }
-
-    :fullscreen .controls:hover {
-      opacity: 1;
-    }
   </style>
 </head>
 <body>
@@ -117,7 +117,6 @@
     <button class="btn" id="toggleView">Enter Fullscreen</button>
   </div>
 
-  <!-- ✅ Include Panzoom from CDN -->
   <script src="https://unpkg.com/@panzoom/panzoom@9.4.0/dist/panzoom.min.js"></script>
 
   <script>
@@ -140,18 +139,21 @@
       page.appendChild(inner);
       book.appendChild(page);
 
-      // Setup panzoom (but disable initially)
+      // Setup panzoom
       const panzoom = Panzoom(inner, {
         maxScale: 3,
         minScale: 1,
-        contain: 'outside',
         startScale: 1,
-        setTransform: (elem, { x, y, scale }) => {
-          elem.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-        }
+        // enable pinch + pan
+        pinchAndPan: true,
+        contain: 'outside',
+        disablePan: false,
+        // set touch actions
+        // Panzoom v### uses pointer events
       });
 
-      panzoom.pause(); // pause initially
+      // Pause until user double-taps / enters zoom mode
+      panzoom.pause();
       panzoomInstances.push(panzoom);
     }
 
@@ -160,11 +162,12 @@
     function showPage(n) {
       if (n < 0 || n > totalPages) return;
       current = n;
-
       pages.forEach((page, idx) => {
         page.classList.toggle("flipped", idx < n);
-        panzoomInstances[idx].pause();
-        panzoomInstances[idx].reset();
+        // reset any panzoom instance:
+        const pz = panzoomInstances[idx];
+        pz.reset();
+        pz.pause();
       });
     }
 
@@ -193,42 +196,37 @@
       }
     });
 
-    // Fullscreen toggle
     toggleBtn.addEventListener("click", () => {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().then(() => {
+        document.documentElement.requestFullscreen().then(()=> {
           book.classList.remove("normal");
           toggleBtn.textContent = "Exit Fullscreen";
         });
       } else {
-        document.exitFullscreen().then(() => {
+        document.exitFullscreen().then(()=> {
           book.classList.add("normal");
           toggleBtn.textContent = "Enter Fullscreen";
         });
       }
     });
 
-    // Viewport height fix
     function setViewportHeight() {
       let vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
     }
-
     setViewportHeight();
     window.addEventListener('resize', setViewportHeight);
 
-    // Double-click/tap to toggle panzoom on/off
+    // Double-tap/double-click for toggling zoom
     pages.forEach((page, idx) => {
       const inner = page.querySelector('.page-inner');
       let lastTap = 0;
 
-      // Desktop
       inner.addEventListener("dblclick", (e) => {
         e.stopPropagation();
         togglePanZoom(idx);
       });
 
-      // Mobile
       inner.addEventListener("touchend", (e) => {
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTap;
@@ -242,12 +240,12 @@
     });
 
     function togglePanZoom(idx) {
-      const panzoom = panzoomInstances[idx];
-      if (panzoom.isPaused()) {
-        panzoom.resume();
+      const pz = panzoomInstances[idx];
+      if (pz.isPaused()) {
+        pz.resume();
       } else {
-        panzoom.reset();
-        panzoom.pause();
+        pz.reset();
+        pz.pause();
       }
     }
 
