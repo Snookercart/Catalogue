@@ -11,20 +11,43 @@
       align-items: center;
       height: 100vh;
       background: #fff; /* White background */
+      user-select: none;
     }
     img {
       max-width: 100%;
       max-height: 100%;
       transition: transform 0.3s ease;
     }
+    .page-indicator {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <img id="catalogue" src="page_001.png" alt="Catalogue Page">
+  <div class="page-indicator" id="pageIndicator">1 / 10</div>
 
   <script>
     const img = document.getElementById("catalogue");
+    const pageIndicator = document.getElementById("pageIndicator");
     let zoomed = false;
+    let currentPage = 1;
+    const totalPages = 10;
+
+    function updatePage() {
+      const pageNum = String(currentPage).padStart(3, '0');
+      img.src = `page_${pageNum}.png`;
+      pageIndicator.textContent = `${currentPage} / ${totalPages}`;
+      img.style.transform = "scale(1)";
+      zoomed = false;
+    }
 
     function toggleZoom(event) {
       event.preventDefault();
@@ -36,10 +59,10 @@
       zoomed = !zoomed;
     }
 
-    // Desktop double click
+    // Double-click (desktop)
     img.addEventListener("dblclick", toggleZoom);
 
-    // Mobile double tap
+    // Double-tap (mobile)
     let lastTap = 0;
     img.addEventListener("touchend", function (e) {
       let currentTime = new Date().getTime();
@@ -48,6 +71,40 @@
         toggleZoom(e);
       }
       lastTap = currentTime;
+    });
+
+    // Swipe left/right (mobile)
+    let startX = 0;
+    img.addEventListener("touchstart", e => {
+      startX = e.changedTouches[0].screenX;
+    });
+    img.addEventListener("touchend", e => {
+      let endX = e.changedTouches[0].screenX;
+      if (endX - startX > 50) {
+        // Swipe right → previous page
+        if (currentPage > 1) {
+          currentPage--;
+          updatePage();
+        }
+      } else if (startX - endX > 50) {
+        // Swipe left → next page
+        if (currentPage < totalPages) {
+          currentPage++;
+          updatePage();
+        }
+      }
+    });
+
+    // Keyboard navigation (desktop)
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight" && currentPage < totalPages) {
+        currentPage++;
+        updatePage();
+      }
+      if (e.key === "ArrowLeft" && currentPage > 1) {
+        currentPage--;
+        updatePage();
+      }
     });
   </script>
 </body>
