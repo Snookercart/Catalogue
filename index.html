@@ -33,7 +33,6 @@
       transition: all 0.5s ease;
     }
 
-    /* Normal (non-fullscreen) view */
     #book.normal {
       width: 90vw;
       max-width: 1000px;
@@ -56,6 +55,7 @@
       height: 100%;
       object-fit: contain;
       display: block;
+      cursor: zoom-in;
     }
 
     .page.flipped {
@@ -91,7 +91,6 @@
       cursor: pointer;
     }
 
-    /* Optional: Dim button in fullscreen */
     :fullscreen .controls {
       opacity: 0.3;
       transition: opacity 0.3s;
@@ -99,6 +98,17 @@
 
     :fullscreen .controls:hover {
       opacity: 1;
+    }
+
+    /* Zoom styles */
+    .page.zoomed {
+      transform: scale(2) translate(-25%, -25%) !important;
+      transform-origin: center center !important;
+      z-index: 1000;
+    }
+
+    .page.zoomed img {
+      cursor: zoom-out;
     }
   </style>
 </head>
@@ -113,12 +123,14 @@
   </div>
 
   <script>
-    const totalPages = 10; // Number of pages (adjust if needed)
+    const totalPages = 10; // Adjust this if you have more/less pages
     const book = document.getElementById("book");
     const toggleBtn = document.getElementById("toggleView");
     let current = 0;
+    let isZoomed = false;
+    let zoomedPage = null;
 
-    // Generate pages
+    // Generate pages dynamically
     for (let i = 1; i <= totalPages; i++) {
       const page = document.createElement("div");
       page.className = "page";
@@ -132,6 +144,7 @@
     function showPage(n) {
       if (n < 0 || n > totalPages) return;
       current = n;
+
       pages.forEach((page, idx) => {
         if (idx < n) {
           page.classList.add("flipped");
@@ -139,14 +152,20 @@
           page.classList.remove("flipped");
         }
       });
+
+      // Reset zoom when navigating
+      if (isZoomed) {
+        unzoom();
+      }
     }
 
+    // Navigation clicks
     document.querySelector(".nav.right").addEventListener("click", () => {
-      if (current < totalPages) showPage(current + 1);
+      if (!isZoomed && current < totalPages) showPage(current + 1);
     });
 
     document.querySelector(".nav.left").addEventListener("click", () => {
-      if (current > 0) showPage(current - 1);
+      if (!isZoomed && current > 0) showPage(current - 1);
     });
 
     // Swipe navigation
@@ -170,7 +189,6 @@
     // Fullscreen toggle
     toggleBtn.addEventListener("click", () => {
       if (!document.fullscreenElement) {
-        // Enter fullscreen
         document.documentElement.requestFullscreen().then(() => {
           book.classList.remove("normal");
           toggleBtn.textContent = "Exit Fullscreen";
@@ -178,7 +196,6 @@
           alert(`Error attempting to enable fullscreen: ${err.message}`);
         });
       } else {
-        // Exit fullscreen
         document.exitFullscreen().then(() => {
           book.classList.add("normal");
           toggleBtn.textContent = "Enter Fullscreen";
@@ -186,7 +203,7 @@
       }
     });
 
-    // Fix mobile viewport height
+    // Viewport height fix
     function setViewportHeight() {
       let vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -195,7 +212,50 @@
     setViewportHeight();
     window.addEventListener('resize', setViewportHeight);
 
-    // Start at first page
+    // Double-click & double-tap for zoom
+    pages.forEach((page) => {
+      let lastTap = 0;
+
+      // Desktop double-click
+      page.addEventListener('dblclick', (e) => {
+        toggleZoom(page);
+      });
+
+      // Mobile double-tap
+      page.addEventListener('touchend', (e) => {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTap;
+        if (tapLength < 300 && tapLength > 0) {
+          e.preventDefault();
+          toggleZoom(page);
+        }
+        lastTap = currentTime;
+      });
+    });
+
+    function toggleZoom(page) {
+      if (isZoomed) {
+        unzoom();
+      } else {
+        zoomIn(page);
+      }
+    }
+
+    function zoomIn(page) {
+      isZoomed = true;
+      zoomedPage = page;
+      page.classList.add('zoomed');
+    }
+
+    function unzoom() {
+      if (zoomedPage) {
+        zoomedPage.classList.remove('zoomed');
+        zoomedPage = null;
+      }
+      isZoomed = false;
+    }
+
+    // Show first page
     showPage(0);
   </script>
 </body>
