@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Catalogue Flipbook</title>
-  <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0" />
   <style>
     html, body {
       margin: 0;
@@ -16,9 +16,7 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    :root {
-      --vh: 1vh;
-    }
+    :root { --vh: 1vh; }
 
     body {
       display: flex;
@@ -30,8 +28,7 @@
 
     #loading {
       position: fixed;
-      top: 50%;
-      left: 50%;
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       font-size: 1.2em;
       color: #444;
@@ -56,14 +53,10 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
       background: white;
     }
-
-    .page.flipped {
-      transform: rotateY(-180deg);
-    }
+    .page.flipped { transform: rotateY(-180deg); }
 
     .page-inner {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       overflow: hidden;
       position: relative;
     }
@@ -85,7 +78,6 @@
       height: 100%;
       z-index: 100;
     }
-
     .nav.left { left: 0; }
     .nav.right { right: 0; }
 
@@ -96,7 +88,6 @@
       transform: translateX(-50%);
       z-index: 200;
     }
-
     .btn {
       padding: 8px 14px;
       border: none;
@@ -126,7 +117,6 @@
     const loading = document.getElementById("loading");
     const toggleBtn = document.getElementById("toggleView");
     let current = 0;
-
     const pages = [];
 
     function preloadImages() {
@@ -135,11 +125,7 @@
         for (let i = 1; i <= totalPages; i++) {
           const img = new Image();
           img.src = `page_${String(i).padStart(3, "0")}.png`;
-          img.onload = () => {
-            loaded++;
-            if (loaded === totalPages) resolve();
-          };
-          img.onerror = () => {
+          img.onload = img.onerror = () => {
             loaded++;
             if (loaded === totalPages) resolve();
           };
@@ -196,8 +182,15 @@
 
       function updateTransform() {
         const scale = parseFloat(container.dataset.scale);
-        const x = parseFloat(container.dataset.posX);
-        const y = parseFloat(container.dataset.posY);
+        let x = parseFloat(container.dataset.posX);
+        let y = parseFloat(container.dataset.posY);
+
+        const maxOffset = (scale - 1) * 150; // clamp area
+        x = clamp(x, -maxOffset, maxOffset);
+        y = clamp(y, -maxOffset, maxOffset);
+
+        container.dataset.posX = x;
+        container.dataset.posY = y;
         img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
       }
 
@@ -236,7 +229,7 @@
       container.addEventListener("touchend", (e) => {
         const now = Date.now();
         if (e.touches.length === 0 && now - lastTap < 300) {
-          // double tap
+          // double tap zoom
           const scale = parseFloat(container.dataset.scale);
           if (scale === 1) {
             container.dataset.scale = 2;
@@ -287,7 +280,6 @@
     document.querySelector(".nav.right").addEventListener("click", () => {
       if (current < totalPages) showPage(current + 1);
     });
-
     document.querySelector(".nav.left").addEventListener("click", () => {
       if (current > 0) showPage(current - 1);
     });
@@ -295,7 +287,6 @@
     function setVH() {
       document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + "px");
     }
-
     window.addEventListener('resize', setVH);
     setVH();
 
@@ -306,7 +297,7 @@
       showPage(0);
     });
 
-    // Auto fullscreen on first interaction
+    // auto fullscreen
     function autoFullscreen() {
       toggleFullscreen();
       document.removeEventListener("click", autoFullscreen);
