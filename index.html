@@ -22,7 +22,7 @@
       align-items: center;
       flex-direction: column;
       overflow-x: hidden;
-      overflow-y: auto; /* allow vertical scroll if needed */
+      overflow-y: auto;
     }
 
     #book {
@@ -33,6 +33,7 @@
       transition: all 0.5s ease;
     }
 
+    /* Normal (smaller) view */
     #book.normal {
       width: 90vw;
       max-width: 1000px;
@@ -101,17 +102,17 @@
   </div>
 
   <script>
-    const totalPages = 10; // number of pages
+    const totalPages = 10; // Number of pages
     const book = document.getElementById("book");
     const toggleBtn = document.getElementById("toggleView");
     let current = 0;
 
-    // ✅ Create pages dynamically
+    // Generate pages dynamically
     for (let i = 1; i <= totalPages; i++) {
       const page = document.createElement("div");
       page.className = "page";
       page.style.zIndex = totalPages - i + 1;
-      page.innerHTML = `<img src="page_${String(i).padStart(3,"0")}.png" alt="Page ${i}">`;
+      page.innerHTML = `<img src="page_${String(i).padStart(3, "0")}.png" alt="Page ${i}">`;
       book.appendChild(page);
     }
 
@@ -130,7 +131,7 @@
       });
     }
 
-    // Navigation
+    // Click navigation
     document.querySelector(".nav.right").addEventListener("click", () => {
       if (current < totalPages) showPage(current + 1);
     });
@@ -157,7 +158,7 @@
       }
     });
 
-    // Toggle Full Page / Normal View
+    // Fullscreen toggle
     toggleBtn.addEventListener("click", () => {
       if (book.classList.contains("normal")) {
         book.classList.remove("normal");
@@ -168,7 +169,7 @@
       }
     });
 
-    // ✅ Handle 100vh issue on mobile
+    // Fix mobile viewport height
     function setViewportHeight() {
       let vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -177,8 +178,9 @@
     setViewportHeight();
     window.addEventListener('resize', setViewportHeight);
 
-    // Start on first page
+    // Start in full screen mode and on page 0
     showPage(0);
+    // No need to add `.normal` class, because full screen is default
   </script>
 </body>
 </html>
