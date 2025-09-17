@@ -62,14 +62,15 @@
   const book = document.getElementById("book");
   let current = 0;
 
-  // Create pages dynamically with proper stacking
+  // ✅ Create pages with page_001.png as top/front cover
   for (let i = 1; i <= totalPages; i++) {
     const page = document.createElement("div");
     page.className = "page";
-    page.style.zIndex = totalPages - i; // top page has highest zIndex
+    page.style.zIndex = totalPages - i + 1; // page_001 highest zIndex
     page.innerHTML = `<img src="page_${String(i).padStart(3,"0")}.png" alt="Page ${i}">`;
     book.appendChild(page);
   }
+
   const pages = document.querySelectorAll(".page");
 
   function showPage(n) {
@@ -78,14 +79,14 @@
 
     pages.forEach((page, idx) => {
       if (idx < n) {
-        page.classList.add("flipped"); // already flipped
+        page.classList.add("flipped"); // flipped
       } else {
-        page.classList.remove("flipped"); // not flipped yet
+        page.classList.remove("flipped"); // not yet flipped
       }
     });
   }
 
-  // Click navigation
+  // Navigation clicks
   document.querySelector(".nav.right").addEventListener("click", () => {
     if (current < totalPages) showPage(current + 1);
   });
@@ -93,20 +94,14 @@
     if (current > 0) showPage(current - 1);
   });
 
-  // Swipe detection
+  // Swipe navigation
   let startX = 0;
   let endX = 0;
-
   document.addEventListener("touchstart", (e) => {
     startX = e.changedTouches[0].screenX;
   });
-
   document.addEventListener("touchend", (e) => {
     endX = e.changedTouches[0].screenX;
-    handleSwipe();
-  });
-
-  function handleSwipe() {
     const diff = endX - startX;
     if (Math.abs(diff) > 50) {
       if (diff < 0 && current < totalPages) {
@@ -115,9 +110,9 @@
         showPage(current - 1); // swipe right → prev
       }
     }
-  }
+  });
 
-  // Start on first page
+  // ✅ Start with first page visible (page_001.png)
   showPage(0);
 </script>
 </body>
