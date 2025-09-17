@@ -4,11 +4,14 @@
   <meta charset="UTF-8">
   <title>Catalogue Flipbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      background: #fff;
+      overflow: hidden;
     }
 
     :root {
@@ -16,13 +19,10 @@
     }
 
     body {
-      background: #fff;
       display: flex;
       justify-content: center;
       align-items: center;
       flex-direction: column;
-      overflow-x: hidden;
-      overflow-y: auto;
     }
 
     #book {
@@ -33,7 +33,7 @@
       transition: all 0.5s ease;
     }
 
-    /* Normal (smaller) view */
+    /* Normal (non-fullscreen) view */
     #book.normal {
       width: 90vw;
       max-width: 1000px;
@@ -90,24 +90,35 @@
       border-radius: 6px;
       cursor: pointer;
     }
+
+    /* Optional: Dim button in fullscreen */
+    :fullscreen .controls {
+      opacity: 0.3;
+      transition: opacity 0.3s;
+    }
+
+    :fullscreen .controls:hover {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
-  <div id="book"></div>
+
+  <div id="book" class="normal"></div>
   <div class="nav left"></div>
   <div class="nav right"></div>
 
   <div class="controls">
-    <button class="btn" id="toggleView">Normal View</button>
+    <button class="btn" id="toggleView">Enter Fullscreen</button>
   </div>
 
   <script>
-    const totalPages = 10; // Number of pages
+    const totalPages = 10; // Number of pages (adjust if needed)
     const book = document.getElementById("book");
     const toggleBtn = document.getElementById("toggleView");
     let current = 0;
 
-    // Generate pages dynamically
+    // Generate pages
     for (let i = 1; i <= totalPages; i++) {
       const page = document.createElement("div");
       page.className = "page";
@@ -121,7 +132,6 @@
     function showPage(n) {
       if (n < 0 || n > totalPages) return;
       current = n;
-
       pages.forEach((page, idx) => {
         if (idx < n) {
           page.classList.add("flipped");
@@ -131,7 +141,6 @@
       });
     }
 
-    // Click navigation
     document.querySelector(".nav.right").addEventListener("click", () => {
       if (current < totalPages) showPage(current + 1);
     });
@@ -160,12 +169,20 @@
 
     // Fullscreen toggle
     toggleBtn.addEventListener("click", () => {
-      if (book.classList.contains("normal")) {
-        book.classList.remove("normal");
-        toggleBtn.textContent = "Normal View";
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        document.documentElement.requestFullscreen().then(() => {
+          book.classList.remove("normal");
+          toggleBtn.textContent = "Exit Fullscreen";
+        }).catch((err) => {
+          alert(`Error attempting to enable fullscreen: ${err.message}`);
+        });
       } else {
-        book.classList.add("normal");
-        toggleBtn.textContent = "Full Page";
+        // Exit fullscreen
+        document.exitFullscreen().then(() => {
+          book.classList.add("normal");
+          toggleBtn.textContent = "Enter Fullscreen";
+        });
       }
     });
 
@@ -178,9 +195,8 @@
     setViewportHeight();
     window.addEventListener('resize', setViewportHeight);
 
-    // Start in full screen mode and on page 0
+    // Start at first page
     showPage(0);
-    // No need to add `.normal` class, because full screen is default
   </script>
 </body>
 </html>
