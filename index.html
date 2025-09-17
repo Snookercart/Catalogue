@@ -30,6 +30,7 @@
       margin: 10px 0;
       display: flex;
       gap: 10px;
+      transition: opacity 0.5s ease;
     }
     .btn {
       padding: 8px 14px;
@@ -56,9 +57,12 @@
       justify-content: center;
       cursor: pointer;
       user-select: none;
+      opacity: 1;
+      transition: opacity 0.5s ease;
     }
     .arrow-left { left: 20px; }
     .arrow-right { right: 20px; }
+    .hidden { opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -79,7 +83,8 @@
   <div class="arrow arrow-left" id="prev">&#10094;</div>
   <div class="arrow arrow-right" id="next">&#10095;</div>
 
-  <div class="controls">
+  <!-- Controls -->
+  <div class="controls" id="controls">
     <button class="btn" id="full">Full View</button>
     <button class="btn" id="normal">Normal</button>
   </div>
@@ -90,7 +95,7 @@
       width: 800,
       height: 600,
       autoCenter: true,
-      duration: 1000, // slow motion flip
+      duration: 1000,
       elevation: 50,
       gradients: true,
     });
@@ -102,21 +107,37 @@
     // Fullscreen specific to flipbook
     document.getElementById("full").onclick = () => {
       const flipbook = document.getElementById("flipbook");
-      if (flipbook.requestFullscreen) {
-        flipbook.requestFullscreen();
-      } else if (flipbook.webkitRequestFullscreen) {
-        flipbook.webkitRequestFullscreen();
-      } else if (flipbook.msRequestFullscreen) {
-        flipbook.msRequestFullscreen();
-      }
+      if (flipbook.requestFullscreen) flipbook.requestFullscreen();
+      else if (flipbook.webkitRequestFullscreen) flipbook.webkitRequestFullscreen();
+      else if (flipbook.msRequestFullscreen) flipbook.msRequestFullscreen();
     };
 
     // Exit fullscreen
     document.getElementById("normal").onclick = () => {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+      if (document.exitFullscreen) document.exitFullscreen();
     };
+
+    // Auto-hide arrows + controls
+    const arrows = document.querySelectorAll('.arrow');
+    const controls = document.getElementById('controls');
+    let hideTimeout;
+
+    function showUI() {
+      arrows.forEach(a => a.classList.remove('hidden'));
+      controls.classList.remove('hidden');
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        arrows.forEach(a => a.classList.add('hidden'));
+        controls.classList.add('hidden');
+      }, 2000); // hide after 2 seconds
+    }
+
+    // Show UI on activity
+    document.addEventListener('mousemove', showUI);
+    document.addEventListener('touchstart', showUI);
+
+    // Start hiding after load
+    showUI();
   </script>
 </body>
 </html>
