@@ -138,6 +138,24 @@
 
     // Start hiding after load
     showUI();
+
+    // Swipe support for mobile
+    let startX = 0;
+    document.getElementById("flipbook").addEventListener("touchstart", function(e) {
+      startX = e.touches[0].clientX;
+    });
+
+    document.getElementById("flipbook").addEventListener("touchend", function(e) {
+      let endX = e.changedTouches[0].clientX;
+      let diffX = endX - startX;
+      if (Math.abs(diffX) > 50) { // minimum swipe distance
+        if (diffX < 0) {
+          $("#flipbook").turn("next"); // swipe left → next page
+        } else {
+          $("#flipbook").turn("previous"); // swipe right → previous page
+        }
+      }
+    });
   </script>
 </body>
 </html>
