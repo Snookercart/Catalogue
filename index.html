@@ -2,196 +2,144 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Catalogue Flipbook (fixed)</title>
+  <title>Catalogue Flipbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
-    html,body {height:100%; margin:0; background:#fff; overflow:hidden;}
+    html,body {margin:0; height:100%; background:#fff; overflow:hidden;}
     #container {width:100vw; height:100vh; display:flex; align-items:center; justify-content:center;}
-    #flipbook {
-      /* we'll set explicit sizes from JS so Turn.js has fixed page sizes */
-      background: #fff;
-    }
-    #flipbook .page { background:#fff; }
-    #flipbook .page img { display:block; width:100%; height:100%; object-fit:contain; }
-    /* simple overlay arrows */
+    #flipbook {background:#fff;}
+    #flipbook .page {background:#fff;}
+    #flipbook .page img {width:100%; height:100%; object-fit:contain; display:block;}
+
+    /* navigation arrows */
     .arrow {
       position:absolute; top:50%; transform:translateY(-50%);
       width:56px; height:56px; border-radius:50%;
       display:flex; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.35); color:#fff; font-size:34px; cursor:pointer;
-      user-select:none;
+      background:rgba(0,0,0,0.35); color:#fff; font-size:34px; cursor:pointer;
+      user-select:none; transition:opacity .25s;
     }
     .arrow-left { left:18px; }
     .arrow-right { right:18px; }
-    .hidden { opacity:0; pointer-events:none; transition: opacity .25s; }
-    .visible { opacity:0.9; transition: opacity .25s; }
+    .hidden { opacity:0; pointer-events:none; }
+    .visible { opacity:0.9; }
+
+    /* fullscreen button */
+    #fullscreenBtn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
   </style>
 
-  <!-- jQuery then turn.js (CDN) -->
+  <!-- jQuery + turn.js -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
 </head>
 <body>
   <div id="container">
     <div id="flipbook">
-      <!-- pages: each .page required by turn.js -->
-      <div class="page"><img src="page_001.png" alt="1"></div>
-      <div class="page"><img src="page_002.png" alt="2"></div>
-      <div class="page"><img src="page_003.png" alt="3"></div>
-      <div class="page"><img src="page_004.png" alt="4"></div>
-      <div class="page"><img src="page_005.png" alt="5"></div>
-      <div class="page"><img src="page_006.png" alt="6"></div>
-      <div class="page"><img src="page_007.png" alt="7"></div>
-      <div class="page"><img src="page_008.png" alt="8"></div>
-      <div class="page"><img src="page_009.png" alt="9"></div>
-      <div class="page"><img src="page_010.png" alt="10"></div>
+      <div class="page"><img src="page_001.png"></div>
+      <div class="page"><img src="page_002.png"></div>
+      <div class="page"><img src="page_003.png"></div>
+      <div class="page"><img src="page_004.png"></div>
+      <div class="page"><img src="page_005.png"></div>
+      <div class="page"><img src="page_006.png"></div>
+      <div class="page"><img src="page_007.png"></div>
+      <div class="page"><img src="page_008.png"></div>
+      <div class="page"><img src="page_009.png"></div>
+      <div class="page"><img src="page_010.png"></div>
     </div>
   </div>
 
+  <!-- arrows -->
   <div class="arrow arrow-left visible" id="prev">&#10094;</div>
   <div class="arrow arrow-right visible" id="next">&#10095;</div>
+  <!-- fullscreen button -->
+  <button id="fullscreenBtn">Fullscreen</button>
 
 <script>
 (function(){
-  const TOTAL_PAGES = 10; // update if you add more pages
   const $flip = $('#flipbook');
-  let inited = false;
-  let hideUiTimeout;
+  const $prev = $('#prev'), $next = $('#next');
+  let inited = false, zoomed = false, lastTap = 0;
 
-  // Ensure turn plugin is present
-  if (!$.fn.turn) {
-    console.error('Turn.js is not loaded. Check the script includes.');
-    alert('Flipbook error: turn.js not loaded. Check console.');
-    return;
-  }
-
-  // Preload images (so pages are ready before init)
-  function preloadImages(count) {
-    const promises = [];
-    for (let i=1;i<=count;i++){
-      const name = `page_${String(i).padStart(3,'0')}.png`;
-      promises.push(new Promise((res, rej)=>{
-        const img = new Image();
-        img.onload = () => res(name);
-        img.onerror = () => {
-          console.warn('Failed to load', name);
-          // still resolve so the viewer will init (you can fix missing image later)
-          res(name);
-        };
-        img.src = name;
-      }));
-    }
-    return Promise.all(promises);
-  }
-
-  // Determine display mode & page size
   function getConfig() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    // If wide screen show double page; otherwise single page
+    const vw = window.innerWidth, vh = window.innerHeight;
     const display = (vw >= 900) ? 'double' : 'single';
-    // Choose page width/height for Turn.js: use most of viewport but keep some margin
-    const width = Math.floor(vw * 0.94);
-    const height = Math.floor(vh * 0.92);
-    return { display, width, height };
+    return {
+      width: Math.floor(vw*0.95),
+      height: Math.floor(vh*0.9),
+      display
+    };
   }
 
-  // Initialize or reinitialize flipbook
   function initFlipbook() {
     const cfg = getConfig();
-    // destroy if already initialized
-    try {
-      if ($flip.data('turn')) {
-        $flip.turn('destroy');
-        inited = false;
-      }
-    } catch(e) {
-      // ignore if destroy not available
-    }
-
-    // set fixed CSS size so turn.js knows page dimensions
-    $flip.css({ width: cfg.width + 'px', height: cfg.height + 'px' });
-    $flip.find('.page').css({ width: cfg.width + 'px', height: cfg.height + 'px' });
-    $flip.find('img').css({ width: '100%', height: '100%' });
-
-    // Ensure even page count for double display (turn.js likes even count)
-    if (cfg.display === 'double') {
-      // if odd pages, add a blank page at the end
-      if ($flip.children().length % 2 !== 0) {
-        // append blank page if not present
-        $flip.append('<div class="page" style="background:#fff"></div>');
-      }
-    }
-
-    // initialize turn
+    if ($flip.data('turn')) $flip.turn('destroy');
+    $flip.css({width:cfg.width, height:cfg.height});
+    $flip.find('.page').css({width:cfg.width, height:cfg.height});
     $flip.turn({
       width: cfg.width,
       height: cfg.height,
-      autoCenter: true,
       display: cfg.display,
-      duration: 900,     // slow flip
-      acceleration: true,
-      gradients: true,
-      elevation: 50
+      autoCenter:true,
+      duration: 900,
+      gradients:true,
+      elevation:50
     });
     inited = true;
-    console.log('Flipbook initialized', cfg);
   }
 
-  // Debounced resize handler
-  let resizeTimer;
-  window.addEventListener('resize', ()=> {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(()=> {
-      if (inited) initFlipbook();
-    }, 250);
+  // resize handling
+  window.addEventListener('resize', ()=> { if(inited) initFlipbook(); });
+
+  // nav
+  $next.on('click', ()=> $flip.turn('next'));
+  $prev.on('click', ()=> $flip.turn('previous'));
+
+  // swipe
+  let startX=null;
+  $flip.on('touchstart', e=> startX = e.originalEvent.touches[0].clientX);
+  $flip.on('touchend', e=>{
+    if(startX===null) return;
+    let dx = e.originalEvent.changedTouches[0].clientX - startX;
+    startX=null;
+    if(Math.abs(dx)>40) { if(dx<0) $flip.turn('next'); else $flip.turn('previous'); }
   });
 
-  // UI show/hide helpers
-  const $prev = $('#prev'), $next = $('#next');
-  function showUI() {
-    $prev.removeClass('hidden').addClass('visible');
-    $next.removeClass('hidden').addClass('visible');
-    clearTimeout(hideUiTimeout);
-    hideUiTimeout = setTimeout(()=> {
-      $prev.removeClass('visible').addClass('hidden');
-      $next.removeClass('visible').addClass('hidden');
-    }, 2000);
-  }
-  document.addEventListener('mousemove', showUI);
-  document.addEventListener('touchstart', showUI);
-
-  // navigation
-  $next.on('click', ()=> { if (inited) $flip.turn('next'); });
-  $prev.on('click', ()=> { if (inited) $flip.turn('previous'); });
-
-  // swipe fallback (only triggers next/prev, doesn't conflict with turn's native interactions)
-  let startX = null;
-  $flip.on('touchstart', function(e){ startX = e.originalEvent.touches[0].clientX; });
-  $flip.on('touchend', function(e){
-    if (startX === null) return;
-    const endX = e.originalEvent.changedTouches[0].clientX;
-    const dx = endX - startX;
-    startX = null;
-    if (Math.abs(dx) < 40) return;
-    if (dx < 0) { if (inited) $flip.turn('next'); }
-    else { if (inited) $flip.turn('previous'); }
+  // double tap zoom
+  $flip.on('touchend', e=>{
+    const now = Date.now();
+    if(now-lastTap<300){ // double tap
+      zoomed = !zoomed;
+      if(zoomed){
+        $flip.css({transform:'scale(1.8)', transformOrigin:'center center'});
+      } else {
+        $flip.css({transform:'scale(1)', transformOrigin:'center center'});
+      }
+    }
+    lastTap = now;
   });
 
-  // Preload then init
-  preloadImages(TOTAL_PAGES).then(() => {
-    // If images exist, init flipbook
-    initFlipbook();
-    // initial UI hide timer
-    showUI();
-  }).catch(err => {
-    console.error('Preload failed:', err);
-    // try to initialize anyway
-    initFlipbook();
+  // fullscreen
+  document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
+    let el = document.documentElement;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(err=>console.log(err));
+    } else {
+      document.exitFullscreen();
+    }
   });
 
-  // Debug helper: log if jQuery or turn not available
-  console.log('jQuery version:', $.fn.jquery, 'turn available:', !!$.fn.turn);
+  initFlipbook();
 })();
 </script>
 </body>
