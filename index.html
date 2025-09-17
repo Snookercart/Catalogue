@@ -2,44 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Catalogue Flipbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Sports Catalogue</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      height: 100%;
       background: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      height: 100vh;
-      overflow: hidden;
+      overflow: hidden; /* 🔒 Prevent scroll */
     }
     #flipbook {
-      width: 90%;
-      height: 90%;
-      margin-top: 10px;
+      width: 100vw;
+      height: 100vh;
+      margin: auto;
     }
     #flipbook img {
       width: 100%;
       height: 100%;
       object-fit: contain;
-    }
-    .controls {
-      margin: 10px 0;
-      display: flex;
-      gap: 10px;
-      transition: opacity 0.5s ease;
-    }
-    .btn {
-      padding: 8px 14px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      background: #000;
-      color: #fff;
-      font-size: 14px;
     }
     /* Arrows */
     .arrow {
@@ -57,98 +42,44 @@
       justify-content: center;
       cursor: pointer;
       user-select: none;
-      opacity: 1;
-      transition: opacity 0.5s ease;
+      opacity: 0.8;
+      transition: opacity 0.3s ease;
     }
+    .arrow:hover { opacity: 1; }
     .arrow-left { left: 20px; }
     .arrow-right { right: 20px; }
-    .hidden { opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="flipbook">
-    <div><img src="page_001.png"></div>
-    <div><img src="page_002.png"></div>
-    <div><img src="page_003.png"></div>
-    <div><img src="page_004.png"></div>
-    <div><img src="page_005.png"></div>
-    <div><img src="page_006.png"></div>
-    <div><img src="page_007.png"></div>
-    <div><img src="page_008.png"></div>
-    <div><img src="page_009.png"></div>
-    <div><img src="page_010.png"></div>
+    <div><img src="page_001.png" alt="Page 1"></div>
+    <div><img src="page_002.png" alt="Page 2"></div>
+    <div><img src="page_003.png" alt="Page 3"></div>
+    <div><img src="page_004.png" alt="Page 4"></div>
+    <div><img src="page_005.png" alt="Page 5"></div>
+    <div><img src="page_006.png" alt="Page 6"></div>
+    <div><img src="page_007.png" alt="Page 7"></div>
+    <div><img src="page_008.png" alt="Page 8"></div>
+    <div><img src="page_009.png" alt="Page 9"></div>
+    <div><img src="page_010.png" alt="Page 10"></div>
   </div>
 
   <!-- Arrows -->
   <div class="arrow arrow-left" id="prev">&#10094;</div>
   <div class="arrow arrow-right" id="next">&#10095;</div>
 
-  <!-- Controls -->
-  <div class="controls" id="controls">
-    <button class="btn" id="full">Full View</button>
-    <button class="btn" id="normal">Normal</button>
-  </div>
-
   <script>
-    // Initialize flipbook
+    // Init flipbook
     $("#flipbook").turn({
-      width: 800,
-      height: 600,
+      width: window.innerWidth,
+      height: window.innerHeight,
       autoCenter: true,
-      duration: 1000,
-      elevation: 50,
-      gradients: true,
+      duration: 1000
     });
 
-    // Navigation via arrows
+    // Buttons
     document.getElementById("next").onclick = () => $("#flipbook").turn("next");
     document.getElementById("prev").onclick = () => $("#flipbook").turn("previous");
-
-    // Fullscreen specific to flipbook
-    function openFullscreen() {
-      const flipbook = document.getElementById("flipbook");
-      if (flipbook.requestFullscreen) flipbook.requestFullscreen();
-      else if (flipbook.webkitRequestFullscreen) flipbook.webkitRequestFullscreen();
-      else if (flipbook.msRequestFullscreen) flipbook.msRequestFullscreen();
-    }
-
-    // Normal (exit fullscreen)
-    document.getElementById("normal").onclick = () => {
-      if (document.exitFullscreen) document.exitFullscreen();
-    };
-    document.getElementById("full").onclick = openFullscreen;
-
-    // Auto fullscreen on mobile
-    function isMobile() {
-      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    }
-    if (isMobile()) {
-      // Require a first tap (browser policy)
-      document.addEventListener("touchstart", function autoFull() {
-        openFullscreen();
-        document.removeEventListener("touchstart", autoFull);
-      });
-    }
-
-    // Auto-hide arrows + controls
-    const arrows = document.querySelectorAll('.arrow');
-    const controls = document.getElementById('controls');
-    let hideTimeout;
-
-    function showUI() {
-      arrows.forEach(a => a.classList.remove('hidden'));
-      controls.classList.remove('hidden');
-      clearTimeout(hideTimeout);
-      hideTimeout = setTimeout(() => {
-        arrows.forEach(a => a.classList.add('hidden'));
-        controls.classList.add('hidden');
-      }, 2000); // hide after 2s
-    }
-
-    document.addEventListener('mousemove', showUI);
-    document.addEventListener('touchstart', showUI);
-
-    showUI();
 
     // Swipe support
     let startX = 0;
@@ -163,6 +94,13 @@
         else $("#flipbook").turn("previous");
       }
     });
+
+    // Register Service Worker (for PWA fullscreen + offline)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log("SW registered", reg))
+        .catch(err => console.log("SW failed", err));
+    }
   </script>
 </body>
 </html>
