@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Flipbook Double‑Tap Zoom Fixed</title>
+  <title>Flipbook Fullscreen + Zoom</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
   <style>
     html, body {
@@ -16,6 +16,10 @@
       display: flex; justify-content: center; align-items: center; flex-direction: column;
       touch-action: none;
     }
+    #loading {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 1.5em; color: #555;
+    }
     #book {
       position: relative;
       width: 90vw;
@@ -23,7 +27,7 @@
       height: 90vh;
       perspective: 2000px;
       overflow: hidden;
-      display: none;
+      display: none; /* hidden until loaded */
     }
     #book.fullscreen {
       width: 100vw;
@@ -95,258 +99,262 @@
 </head>
 <body>
 
-<div id="loading">Loading pages, please wait...</div>
+  <div id="loading">Loading pages, please wait...</div>
 
-<div id="book"></div>
-<div class="nav left"></div>
-<div class="nav right"></div>
+  <div id="book"></div>
+  <div class="nav left"></div>
+  <div class="nav right"></div>
 
-<div class="controls">
-  <button class="btn" id="toggleView">Enter Fullscreen</button>
-</div>
+  <div class="controls">
+    <button class="btn" id="toggleView">Enter Fullscreen</button>
+  </div>
 
-<script>
-  const totalPages = 10;
-  const book = document.getElementById("book");
-  const loading = document.getElementById("loading");
-  const controls = document.querySelector(".controls");
-  const toggleBtn = document.getElementById("toggleView");
-  let current = 0;
+  <script>
+    const totalPages = 10;
+    const book = document.getElementById("book");
+    const loading = document.getElementById("loading");
+    const controls = document.querySelector(".controls");
+    const toggleBtn = document.getElementById("toggleView");
+    let current = 0;
 
-  // Preload images
-  function preloadImages() {
-    let loaded = 0;
-    const imgs = [];
-    return new Promise((res) => {
-      for (let i = 1; i <= totalPages; i++) {
-        const img = new Image();
-        img.src = `page_${String(i).padStart(3, "0")}.png`;
-        img.onload = () => {
-          loaded++;
-          if (loaded === totalPages) res(imgs);
-        };
-        img.onerror = () => {
-          console.warn("Error loading image", img.src);
-          loaded++;
-          if (loaded === totalPages) res(imgs);
-        };
-        imgs.push(img);
+    // Preload images
+    function preloadImages() {
+      let loadedCount = 0;
+      const imgs = [];
+      return new Promise(resolve => {
+        for (let i = 1; i <= totalPages; i++) {
+          const img = new Image();
+          img.src = `page_${String(i).padStart(3, "0")}.png`;
+          img.onload = () => {
+            loadedCount++;
+            if (loadedCount === totalPages) resolve(imgs);
+          };
+          img.onerror = () => {
+            console.warn("Error loading image", img.src);
+            loadedCount++;
+            if (loadedCount === totalPages) resolve(imgs);
+          };
+          imgs.push(img);
+        }
+      });
+    }
+
+    preloadImages().then(images => {
+      // Show book and controls
+      loading.style.display = 'none';
+      controls.style.display = 'block';
+      book.style.display = 'block';
+
+      // Build pages
+      images.forEach((imgElement, index) => {
+        const page = document.createElement("div");
+        page.className = "page";
+        page.style.zIndex = totalPages - index;
+
+        const inner = document.createElement("div");
+        inner.className = "page-inner";
+
+        const img = imgElement;
+        img.alt = `Page ${index + 1}`;
+        img.style.userSelect = 'none';
+        img.style.webkitUserDrag = 'none';
+        img.style.pointerEvents = 'none';
+
+        inner.appendChild(img);
+        page.appendChild(inner);
+        book.appendChild(page);
+
+        setupZoom(inner, img);
+      });
+
+      showPage(0);
+
+      // Auto‑enter fullscreen on first interaction
+      function enterFullscreenOnFirstInteraction() {
+        const handler = () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+              console.warn("Fullscreen request failed:", err);
+            });
+          }
+          book.classList.add("fullscreen");
+          toggleBtn.textContent = "Exit Fullscreen";
+          // Remove the event listeners so it only triggers once
+          document.removeEventListener("click", handler);
+          document.removeEventListener("touchstart", handler);
+        }
+        document.addEventListener("click", handler, { once: true });
+        document.addEventListener("touchstart", handler, { once: true });
+      }
+
+      enterFullscreenOnFirstInteraction();
+    });
+
+    function pages() {
+      return document.querySelectorAll(".page");
+    }
+
+    function showPage(n) {
+      if (n < 0) n = 0;
+      if (n >= totalPages) n = totalPages - 1;
+      current = n;
+      pages().forEach((page, idx) => {
+        page.classList.toggle("flipped", idx < n);
+        // Reset zoom/pan
+        const inner = page.querySelector('.page-inner');
+        const img = page.querySelector('img');
+        img.style.transition = 'transform 0.2s ease';
+        img.style.transform = 'translate(0px, 0px) scale(1)';
+        inner.dataset.scale = 1;
+        inner.dataset.posX = 0;
+        inner.dataset.posY = 0;
+      });
+    }
+
+    document.querySelector(".nav.right").addEventListener("click", () => {
+      if (current < totalPages - 1) showPage(current + 1);
+    });
+    document.querySelector(".nav.left").addEventListener("click", () => {
+      if (current > 0) showPage(current - 1);
+    });
+
+    toggleBtn.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          book.classList.add("fullscreen");
+          toggleBtn.textContent = "Exit Fullscreen";
+        });
+      } else {
+        document.exitFullscreen().then(() => {
+          book.classList.remove("fullscreen");
+          toggleBtn.textContent = "Enter Fullscreen";
+        });
       }
     });
-  }
 
-  preloadImages().then((imgs) => {
-    loading.style.display = 'none';
-    controls.style.display = 'block';
-    book.style.display = 'block';
-
-    imgs.forEach((imgElement, index) => {
-      const page = document.createElement("div");
-      page.className = "page";
-      page.style.zIndex = totalPages - index;
-
-      const inner = document.createElement("div");
-      inner.className = "page-inner";
-
-      const img = imgElement;
-      img.alt = `Page ${index + 1}`;
-      img.style.userSelect = 'none';
-      img.style.webkitUserDrag = 'none';
-      img.style.pointerEvents = 'none';
-
-      inner.appendChild(img);
-      page.appendChild(inner);
-      book.appendChild(page);
-
-      setupZoom(inner, img);
-    });
-
-    showPage(0);
-  });
-
-  function pages() {
-    return document.querySelectorAll(".page");
-  }
-
-  function showPage(n) {
-    if (n < 0) n = 0;
-    if (n >= totalPages) n = totalPages - 1;
-    current = n;
-    pages().forEach((page, idx) => {
-      page.classList.toggle("flipped", idx < n);
-
-      // Reset zoom
-      const img = page.querySelector('img');
-      const inner = page.querySelector('.page-inner');
-      img.style.transition = 'transform 0.2s ease';
-      img.style.transform = 'translate(0px, 0px) scale(1)';
-      inner.dataset.scale = 1;
-      inner.dataset.posX = 0;
-      inner.dataset.posY = 0;
-    });
-  }
-
-  document.querySelector(".nav.right").addEventListener("click", () => {
-    if (current < totalPages - 1) showPage(current + 1);
-  });
-  document.querySelector(".nav.left").addEventListener("click", () => {
-    if (current > 0) showPage(current - 1);
-  });
-
-  toggleBtn.addEventListener("click", () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => {
-        book.classList.add("fullscreen");
-        toggleBtn.textContent = "Exit Fullscreen";
-      });
-    } else {
-      document.exitFullscreen().then(() => {
-        book.classList.remove("fullscreen");
-        toggleBtn.textContent = "Enter Fullscreen";
-      });
+    function setViewportHeight() {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
     }
-  });
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
 
-  function setViewportHeight() {
-    let vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
-  }
-  setViewportHeight();
-  window.addEventListener('resize', setViewportHeight);
-
-  // Function to setup zoom + double-tap toggle
-  function setupZoom(container, img) {
-    container.dataset.scale = 1;
-    container.dataset.posX = 0;
-    container.dataset.posY = 0;
-
-    let lastTouchTime = 0;
-    let touchStartTime = 0;
-    let touchStartX = 0;
-    let touchStartY = 0;
-
-    let pinchStartDistance = 0;
-    let pinchStartScale = 1;
-
-    let dragging = false;
-    let lastX = 0, lastY = 0;
-
-    function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
-
-    function updateTransform() {
-      const scale = parseFloat(container.dataset.scale);
-      const posX = parseFloat(container.dataset.posX);
-      const posY = parseFloat(container.dataset.posY);
-      img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-    }
-
-    function resetZoom() {
+    function setupZoom(container, img) {
       container.dataset.scale = 1;
       container.dataset.posX = 0;
       container.dataset.posY = 0;
-      updateTransform();
-    }
 
-    container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        // possible tap or pan
-        touchStartTime = Date.now();
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-      } else if (e.touches.length === 2) {
-        // pinch start
-        e.preventDefault();
-        pinchStartDistance = distanceBetweenTouches(e.touches[0], e.touches[1]);
-        pinchStartScale = parseFloat(container.dataset.scale);
+      let lastTouchTime = 0;
+      let touchStartTime = 0;
+      let touchStartX = 0;
+      let touchStartY = 0;
+
+      let pinchStartDistance = 0;
+      let pinchStartScale = 1;
+
+      function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
+
+      function updateTransform() {
+        const scale = parseFloat(container.dataset.scale);
+        const posX = parseFloat(container.dataset.posX);
+        const posY = parseFloat(container.dataset.posY);
+        img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
       }
-    }, { passive: false });
 
-    container.addEventListener('touchend', (e) => {
-      const now = Date.now();
-      // Double‑tap check
-      if (e.changedTouches.length === 1) {
-        const touchDuration = now - touchStartTime;
-        const dx = e.changedTouches[0].clientX - touchStartX;
-        const dy = e.changedTouches[0].clientY - touchStartY;
-        const moveDistance = Math.sqrt(dx*dx + dy*dy);
-
-        if (touchDuration < 250 && moveDistance < 10) {
-          // it's a tap
-          if (now - lastTouchTime < 300) {
-            // double‑tap
-            e.preventDefault();
-            // toggle zoom
-            const currentScale = parseFloat(container.dataset.scale);
-            if (currentScale === 1) {
-              container.dataset.scale = 2;
-            } else {
-              resetZoom();
-            }
-            updateTransform();
-          }
-          lastTouchTime = now;
-        }
-      }
-      // If touches ended and was a pan drag, stop dragging
-      dragging = false;
-    });
-
-    container.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2) {
-        // pinch zoom move
-        e.preventDefault();
-        const newDistance = distanceBetweenTouches(e.touches[0], e.touches[1]);
-        let scaleFactor = newDistance / pinchStartDistance;
-        let newScale = clamp(pinchStartScale * scaleFactor, 1, 4);
-        container.dataset.scale = newScale;
+      function resetZoom() {
+        container.dataset.scale = 1;
+        container.dataset.posX = 0;
+        container.dataset.posY = 0;
         updateTransform();
-      } else if (e.touches.length === 1) {
-        const currentScale = parseFloat(container.dataset.scale);
-        if (currentScale > 1) {
-          // pan move
+      }
+
+      function distanceBetweenTouches(t1, t2) {
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
+        return Math.sqrt(dx*dx + dy*dy);
+      }
+
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          touchStartTime = Date.now();
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
           e.preventDefault();
-          const touch = e.touches[0];
-          const dx = touch.clientX - lastX;
-          const dy = touch.clientY - lastY;
-          lastX = touch.clientX;
-          lastY = touch.clientY;
-          container.dataset.posX = parseFloat(container.dataset.posX) + dx;
-          container.dataset.posY = parseFloat(container.dataset.posY) + dy;
-          updateTransform();
+          pinchStartDistance = distanceBetweenTouches(e.touches[0], e.touches[1]);
+          pinchStartScale = parseFloat(container.dataset.scale);
         }
-      }
-    }, { passive: false });
+      }, { passive: false });
 
-    container.addEventListener('touchmove', () => {}, { passive: false }); // ensure non‑passive to allow preventDefault
+      container.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (e.changedTouches.length === 1) {
+          const dt = now - touchStartTime;
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          const dy = e.changedTouches[0].clientY - touchStartY;
+          const moveDist = Math.sqrt(dx*dx + dy*dy);
+          if (dt < 250 && moveDist < 10) {
+            // Recognize as tap
+            if (now - lastTouchTime < 300) {
+              // double‑tap
+              e.preventDefault();
+              const currentScale = parseFloat(container.dataset.scale);
+              if (currentScale === 1) {
+                container.dataset.scale = 2;
+              } else {
+                resetZoom();
+              }
+              updateTransform();
+            }
+            lastTouchTime = now;
+          }
+        }
+      });
 
-    container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1 && parseFloat(container.dataset.scale) > 1) {
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
-        dragging = true;
-      }
-    }, { passive: false });
+      container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const newDistance = distanceBetweenTouches(e.touches[0], e.touches[1]);
+          let scaleFactor = newDistance / pinchStartDistance;
+          let newScale = clamp(pinchStartScale * scaleFactor, 1, 4);
+          container.dataset.scale = newScale;
+          updateTransform();
+        } else if (e.touches.length === 1) {
+          const currentScale = parseFloat(container.dataset.scale);
+          if (currentScale > 1) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const lastX = parseFloat(container.dataset.posX);
+            const lastY = parseFloat(container.dataset.posY);
+            // Using clientX clientY directly for pan is simple
+            // but could track delta
+            // For simplicity, treat this as small pan per move
+            // Could refine if needed
+            const dx = touch.clientX - touchStartX;
+            const dy = touch.clientY - touchStartY;
+            container.dataset.posX = lastX + dx;
+            container.dataset.posY = lastY + dy;
+            updateTransform();
+            // update start for next move
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+          }
+        }
+      }, { passive: false });
 
-    // Desktop double click
-    container.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      const currentScale = parseFloat(container.dataset.scale);
-      if (currentScale === 1) {
-        container.dataset.scale = 2;
-      } else {
-        resetZoom();
-      }
-      updateTransform();
-    });
-
-    // Utility
-    function distanceBetweenTouches(t1, t2) {
-      const dx = t1.clientX - t2.clientX;
-      const dy = t1.clientY - t2.clientY;
-      return Math.sqrt(dx * dx + dy * dy);
+      // Double‑click for desktop
+      container.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        const currentScale = parseFloat(container.dataset.scale);
+        if (currentScale === 1) {
+          container.dataset.scale = 2;
+        } else {
+          resetZoom();
+        }
+        updateTransform();
+      });
     }
-  }
-</script>
+  </script>
 
 </body>
 </html>
