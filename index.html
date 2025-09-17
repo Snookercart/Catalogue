@@ -1,168 +1,54 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Apex Sports Catalogue</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
-<style>
-html,body {
-  height:100%;margin:0;background:#000;
-}
-body {
-  font-family:Arial,Helvetica,sans-serif;
-  display:flex;align-items:center;justify-content:center;
-  height:100vh;
-}
-#book-wrap {
-  width:100%;height:100%;
-  max-width:1100px;max-height:100vh;
-  position:relative;overflow:hidden;background:#111;
-  transform-origin:center center;
-  transition:transform 0.2s ease;
-}
-.page {
-  width:100%;height:100%;
-  position:absolute;top:0;left:0;
-  display:none;background:#000;
-}
-.page img {
-  width:100%;height:100%;
-  object-fit:contain;display:block;
-}
-.controls {
-  position:absolute;left:0;right:0;bottom:18px;
-  display:flex;justify-content:space-between;
-  padding:0 18px;box-sizing:border-box;
-  pointer-events:none;
-}
-.zoom-controls {
-  position:absolute;top:10px;right:10px;
-  display:flex;gap:8px;
-}
-.btn {
-  pointer-events:auto;
-  background:rgba(255,255,255,0.95);color:#000;
-  padding:8px 14px;border-radius:8px;cursor:pointer;
-  border:none;font-size:16px;
-}
-.info {
-  position:absolute;top:10px;left:50%;
-  transform:translateX(-50%);
-  background:rgba(0,0,0,0.6);color:#fff;
-  padding:6px 12px;border-radius:8px;font-size:14px;
-}
-</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #fff; /* White background */
+    }
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      transition: transform 0.3s ease;
+    }
+  </style>
 </head>
 <body>
-<div id="book-wrap">
-  <!-- Catalogue pages -->
-  <div class="page"><img src="page_001.png" alt="Page 1"></div>
-  <div class="page"><img src="page_002.png" alt="Page 2"></div>
-  <div class="page"><img src="page_003.png" alt="Page 3"></div>
-  <div class="page"><img src="page_004.png" alt="Page 4"></div>
+  <img id="catalogue" src="page_001.png" alt="Catalogue Page">
 
-  <div class="info" id="pagenum">Page 1 / 4</div>
-  <div class="controls">
-    <button class="btn" id="prev">Prev</button>
-    <button class="btn" id="next">Next</button>
-  </div>
-  <div class="zoom-controls">
-    <button class="btn" id="zoomIn">+</button>
-    <button class="btn" id="zoomOut">−</button>
-    <button class="btn" id="zoomReset">Reset</button>
-  </div>
-</div>
+  <script>
+    const img = document.getElementById("catalogue");
+    let zoomed = false;
 
-<script>
-const pages = Array.from(document.querySelectorAll('.page'));
-const total = pages.length;
-let current = 0;
-
-function show(i) { 
-  pages.forEach((p,idx)=> p.style.display = (idx===i ? 'block' : 'none')); 
-  document.getElementById('pagenum').textContent = `Page ${i+1} / ${total}`; 
-  window.scrollTo(0,0);
-}
-function nextPage(){ if(current < total-1){ current++; show(current); } }
-function prevPage(){ if(current > 0){ current--; show(current); } }
-document.getElementById('next').addEventListener('click', nextPage);
-document.getElementById('prev').addEventListener('click', prevPage);
-document.addEventListener('keydown', e=>{
-  if(e.key==='ArrowRight') nextPage();
-  if(e.key==='ArrowLeft') prevPage();
-});
-
-// Swipe navigation
-let startX=0, isTouch=false;
-const wrap = document.getElementById('book-wrap');
-wrap.addEventListener('touchstart', e=>{ isTouch=true; startX = e.touches[0].clientX; });
-wrap.addEventListener('touchend', e=>{
-  if(!isTouch) return;
-  const endX = e.changedTouches[0].clientX;
-  const dx = endX - startX;
-  if(Math.abs(dx) > 40) { if(dx < 0) nextPage(); else prevPage(); }
-  isTouch=false;
-});
-
-// Click navigation
-wrap.addEventListener('click', e=>{
-  const rect = wrap.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  if(x < rect.width*0.35) prevPage();
-  else if(x > rect.width*0.65) nextPage();
-});
-
-// Zoom functionality
-let zoomLevel = 1;
-const zoomStep = 0.2;
-const maxZoom = 3;
-const minZoom = 0.6;
-
-function applyZoom() {
-  wrap.style.transform = `scale(${zoomLevel})`;
-}
-document.getElementById('zoomIn').addEventListener('click', ()=>{
-  if(zoomLevel < maxZoom) { zoomLevel += zoomStep; applyZoom(); }
-});
-document.getElementById('zoomOut').addEventListener('click', ()=>{
-  if(zoomLevel > minZoom) { zoomLevel -= zoomStep; applyZoom(); }
-});
-document.getElementById('zoomReset').addEventListener('click', ()=>{
-  zoomLevel = 1; applyZoom();
-});
-
-// Pinch zoom for touch devices
-let startDist = 0;
-wrap.addEventListener('touchmove', e=>{
-  if(e.touches.length===2){
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.sqrt(dx*dx+dy*dy);
-    if(startDist===0) startDist=dist;
-    else {
-      const diff = dist - startDist;
-      if(Math.abs(diff) > 30) {
-        if(diff > 0 && zoomLevel < maxZoom) zoomLevel += zoomStep;
-        if(diff < 0 && zoomLevel > minZoom) zoomLevel -= zoomStep;
-        applyZoom();
-        startDist=dist;
+    function toggleZoom(event) {
+      event.preventDefault();
+      if (zoomed) {
+        img.style.transform = "scale(1)";
+      } else {
+        img.style.transform = "scale(2)"; // zoom in level
       }
+      zoomed = !zoomed;
     }
-  }
-});
-wrap.addEventListener('touchend', e=>{ if(e.touches.length<2) startDist=0; });
 
-// ✅ Service Worker registration
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js')
-    .then(reg => console.log('Service Worker registered:', reg))
-    .catch(err => console.log('SW registration failed:', err));
-}
+    // Desktop double click
+    img.addEventListener("dblclick", toggleZoom);
 
-// Start on first page
-show(0);
-</script>
+    // Mobile double tap
+    let lastTap = 0;
+    img.addEventListener("touchend", function (e) {
+      let currentTime = new Date().getTime();
+      let tapLength = currentTime - lastTap;
+      if (tapLength < 300 && tapLength > 0) {
+        toggleZoom(e);
+      }
+      lastTap = currentTime;
+    });
+  </script>
 </body>
 </html>
