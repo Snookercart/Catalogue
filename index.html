@@ -20,6 +20,7 @@
       height: 100vh;
       perspective: 2000px;
       overflow: hidden;
+      pointer-events: none; /* disable pointer events on book */
     }
 
     .page {
@@ -43,6 +44,7 @@
       height: 100%;
       overflow: hidden;
       position: relative;
+      pointer-events: auto; /* enable pointer events for inner container */
     }
 
     .page-inner img {
@@ -50,18 +52,17 @@
       height: 100%;
       object-fit: contain;
       user-select: none;
-      pointer-events: auto;
+      pointer-events: auto; /* allow pointer events on image for pan/zoom */
       cursor: default;
-      touch-action: none; /* important for touch gestures */
+      touch-action: none;
       transform-origin: center center;
-      /* Remove transition to prevent flicker */
-      /* transition: transform 0.2s ease; */
-      will-change: transform; /* hint browser for GPU accel */
-      backface-visibility: hidden; /* reduce flickering */
+      will-change: transform;
+      backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
       -moz-backface-visibility: hidden;
       -webkit-transform-style: preserve-3d;
       -moz-transform-style: preserve-3d;
+      /* Removed transition to prevent flicker */
     }
 
     .arrow {
@@ -81,6 +82,7 @@
       z-index: 200;
       user-select: none;
       transition: 0.3s;
+      pointer-events: auto; /* enable pointer events on arrows */
     }
 
     .arrow:hover {
@@ -104,7 +106,7 @@
     }
 
     .controls {
-      display: none; /* hide zoom/reset buttons */
+      display: none; /* zoom buttons hidden as per request */
     }
   </style>
 </head>
@@ -138,7 +140,6 @@
     let touchEndX = 0;
     let touchEndY = 0;
 
-    // Use requestAnimationFrame to batch transform updates
     let pendingAnimationFrame = false;
 
     function createPages() {
@@ -329,7 +330,7 @@
       applyZoom();
     });
 
-    // Init
+    // Initialize pages and show first page
     createPages();
     showPage(0);
   </script>
