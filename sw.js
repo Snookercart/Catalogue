@@ -1,17 +1,16 @@
+// ✅ Service Worker for Catalogue Flipbook (48 pages)
 const CACHE_NAME = "catalogue-v1";
 
+// Cache all assets including 48 pages
 const urlsToCache = [
   "./",
   "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
+  // Pages from page_001.png to page_048.png
+  ...Array.from({ length: 48 }, (_, i) => `./page_${String(i + 1).padStart(3, "0")}.png`),
 ];
-
-// Add image pages
-for (let i = 1; i <= 48; i++) {
-  urlsToCache.push(`./page_${String(i).padStart(3, "0")}.png`);
-}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
