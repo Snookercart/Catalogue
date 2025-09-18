@@ -18,6 +18,8 @@ const urlsToCache = [
   "./page_008.png",
   "./page_009.png",
   "./page_010.png",
+  "./page_011.png",
+  "./page_012.png",
   // add more if you have more pages
 ];
 
