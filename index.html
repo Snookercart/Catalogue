@@ -20,7 +20,7 @@
       height: 100vh;
       perspective: 2000px;
       overflow: hidden;
-      pointer-events: none; /* disable pointer events on book */
+      /* We don’t disable pointer-events on #book now, so events can be captured/stopped properly */
     }
 
     .page {
@@ -44,7 +44,7 @@
       height: 100%;
       overflow: hidden;
       position: relative;
-      pointer-events: auto; /* enable pointer events for inner container */
+      pointer-events: auto; /* allow px events here */
     }
 
     .page-inner img {
@@ -52,7 +52,7 @@
       height: 100%;
       object-fit: contain;
       user-select: none;
-      pointer-events: auto; /* allow pointer events on image for pan/zoom */
+      pointer-events: auto; /* needed for pan/zoom */
       cursor: default;
       touch-action: none;
       transform-origin: center center;
@@ -62,7 +62,6 @@
       -moz-backface-visibility: hidden;
       -webkit-transform-style: preserve-3d;
       -moz-transform-style: preserve-3d;
-      /* Removed transition to prevent flicker */
     }
 
     .arrow {
@@ -82,7 +81,7 @@
       z-index: 200;
       user-select: none;
       transition: 0.3s;
-      pointer-events: auto; /* enable pointer events on arrows */
+      pointer-events: auto; /* ensure arrows respond */
     }
 
     .arrow:hover {
@@ -106,7 +105,7 @@
     }
 
     .controls {
-      display: none; /* zoom buttons hidden as per request */
+      display: none; 
     }
   </style>
 </head>
@@ -159,6 +158,14 @@
         page.appendChild(inner);
         book.appendChild(page);
         pages.push(page);
+
+        // Stop propagation of click / touchstart on inner, so it doesn't bubble up to book/page to trigger flip accidentally
+        inner.addEventListener('click', function(e) {
+          e.stopPropagation();
+        });
+        inner.addEventListener('touchstart', function(e) {
+          e.stopPropagation();
+        });
       }
     }
 
@@ -198,22 +205,26 @@
       doubleZoomed = false;
     }
 
-    // Arrow navigation
-    document.querySelector(".arrow.right").addEventListener("click", () => {
+    // Arrow navigation only
+    document.querySelector(".arrow.right").addEventListener("click", (e) => {
+      e.stopPropagation();
       if (current < totalPages - 1) showPage(current + 1);
     });
 
-    document.querySelector(".arrow.left").addEventListener("click", () => {
+    document.querySelector(".arrow.left").addEventListener("click", (e) => {
+      e.stopPropagation();
       if (current > 0) showPage(current - 1);
     });
 
     // Dragging mouse events
     document.addEventListener("mousedown", (e) => {
+      // only if interacting with the image
       if (scale <= 1 || !currentImg) return;
       isDragging = true;
       startX = e.clientX;
       startY = e.clientY;
       currentImg.style.cursor = "grabbing";
+      e.stopPropagation(); 
       e.preventDefault();
     });
 
@@ -229,6 +240,8 @@
       startX = e.clientX;
       startY = e.clientY;
       applyZoom();
+      e.stopPropagation(); 
+      e.preventDefault();
     });
 
     // Touch events: pan, swipe, double-tap
@@ -251,6 +264,7 @@
         }
         doubleZoomed = !doubleZoomed;
         applyZoom();
+        e.stopPropagation();
         e.preventDefault();
       }
       lastTap = currentTime;
@@ -271,6 +285,7 @@
         startX = touch.clientX;
         startY = touch.clientY;
         applyZoom();
+        e.stopPropagation();
         e.preventDefault();
       } else {
         touchEndX = touch.clientX;
@@ -288,6 +303,7 @@
       const absDeltaY = Math.abs(deltaY);
 
       if (absDeltaX > 50 && absDeltaX > absDeltaY) {
+        // only handle swipe in non-zoomed or even zoomed depending on your choice
         if (deltaX < 0) {
           if (current < totalPages - 1) showPage(current + 1);
         } else {
@@ -300,7 +316,7 @@
       touchEndY = 0;
     });
 
-    // Fullscreen button + listener
+    // Fullscreen toggle
     const fullscreenBtn = document.createElement("button");
     fullscreenBtn.textContent = "Fullscreen";
     fullscreenBtn.style.cssText = `
@@ -318,7 +334,8 @@
     `;
     document.body.appendChild(fullscreenBtn);
 
-    fullscreenBtn.addEventListener("click", () => {
+    fullscreenBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
       } else {
@@ -330,7 +347,7 @@
       applyZoom();
     });
 
-    // Initialize pages and show first page
+    // Initialize pages
     createPages();
     showPage(0);
   </script>
