@@ -56,10 +56,11 @@
       transform-origin: center center;
       will-change: transform;
       backface-visibility: hidden;
+      transform: translate3d(0,0,0); /* GPU acceleration */
     }
 
     .arrow {
-      position: absolute;
+      position: fixed; /* FIXED instead of absolute */
       top: 50%;
       transform: translateY(-50%);
       font-size: 40px;
@@ -72,7 +73,7 @@
       line-height: 50px;
       text-align: center;
       cursor: pointer;
-      z-index: 200;
+      z-index: 9999; /* always on top */
       user-select: none;
       transition: 0.3s;
       pointer-events: auto;
@@ -95,7 +96,7 @@
       padding: 5px 12px;
       border-radius: 6px;
       font-size: 14px;
-      z-index: 300;
+      z-index: 9999;
       pointer-events: none;
     }
 
@@ -110,7 +111,7 @@
       font-size: 14px;
       border-radius: 6px;
       cursor: pointer;
-      z-index: 300;
+      z-index: 9999;
     }
   </style>
 </head>
@@ -177,10 +178,9 @@
 
     function applyZoom() {
       if (!currentImg) return;
-      currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
+      currentImg.style.transform = `translate3d(${offsetX / scale}px, ${offsetY / scale}px, 0) scale(${scale})`;
     }
 
-    // Flip only via arrows
     document.querySelector(".arrow.right").addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
