@@ -1,305 +1,349 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Catalogue Flipbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Catalogue Flipbook (Batched + Zoom)</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #fff;
-      font-family: Arial, sans-serif;
-      overflow: hidden;
-    }
+    /* White background, centered images */
+    html,body{height:100%;margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+    #flipbook{position:relative;width:100vw;height:100vh;perspective:2000px;background:#fff;overflow:hidden}
 
-    #book {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      perspective: 2000px;
-      overflow: hidden;
-    }
+    .page{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;transition:transform .6s;backface-visibility:hidden}
 
-    .page {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      transform-origin: left center;
-      transform-style: preserve-3d;
-      transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
-      background: white;
-      box-shadow: 0 0 20px rgba(0,0,0,0.2);
-    }
+    .zoom-layer{will-change:transform;transform-origin:center center;display:flex;align-items:center;justify-content:center;touch-action:none}
+    .zoom-layer img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;pointer-events:none;display:block;opacity:0;transition:opacity .25s}
 
-    /* Arc effect on flipping */
-    .page.turning {
-      animation: pageTurn 1s ease forwards;
-    }
+    .page-loader{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.55);color:#fff;padding:6px 10px;border-radius:6px;font-size:13px}
 
-    @keyframes pageTurn {
-      0%   { transform: rotateY(0deg) skewY(0deg); }
-      50%  { transform: rotateY(-90deg) skewY(8deg); }
-      100% { transform: rotateY(-180deg) skewY(0deg); }
-    }
+    /* Controls */
+    .controls{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;gap:8px}
+    .controls button{padding:8px 12px;border-radius:6px;border:1px solid rgba(0,0,0,.08);background:#fff;color:#111;cursor:pointer}
 
-    .page.flipped {
-      transform: rotateY(-180deg);
-    }
+    #pageIndicator{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#fff;padding:6px 10px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.08);z-index:2147483647}
 
-    .page-inner {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #fff;
-    }
+    #globalLoader{position:fixed;inset:0;background:rgba(255,255,255,0.85);display:none;align-items:center;justify-content:center;color:#111;font-size:18px;z-index:999999}
 
-    .page-inner img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      user-select: none;
-      pointer-events: auto;
-      cursor: default;
-      touch-action: none;
-      transform-origin: center center;
-      will-change: transform;
-      backface-visibility: hidden;
-    }
-
-    .arrow {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 40px;
-      font-weight: bold;
-      color: rgba(0,0,0,0.6);
-      background: rgba(255,255,255,0.8);
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      line-height: 50px;
-      text-align: center;
-      cursor: pointer;
-      z-index: 200;
-      user-select: none;
-      transition: 0.3s;
-      pointer-events: auto;
-    }
-
-    .arrow:hover {
-      background: rgba(0,0,0,0.8);
-      color: #fff;
-    }
-
-    .arrow.left { left: 10px; }
-    .arrow.right { right: 10px; }
-
-    #pageIndicator {
-      position: fixed;
-      bottom: 15px;
-      left: 15px;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 14px;
-      z-index: 300;
-      pointer-events: none;
-    }
-
-    #fullscreenBtn {
-      position: fixed;
-      bottom: 15px;
-      right: 15px;
-      padding: 6px 12px;
-      border: none;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      font-size: 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      z-index: 300;
-    }
+    /* small helper: keep pointer events working on pages */
+    #flipbook, .page, .zoom-layer{pointer-events:auto}
   </style>
 </head>
 <body>
-  <div id="book"></div>
-
-  <div class="arrow left">&#8249;</div>
-  <div class="arrow right">&#8250;</div>
-
-  <div id="pageIndicator">Page 1/12</div>
-  <button id="fullscreenBtn">Fullscreen</button>
+  <div id="flipbook" aria-live="polite"></div>
+  <div id="pageIndicator">Page 1/48</div>
+  <div class="controls">
+    <button id="prevBtn">Prev</button>
+    <button id="nextBtn">Next</button>
+    <button id="fullscreenBtn">Fullscreen</button>
+  </div>
+  <div id="globalLoader">Loading pages…</div>
 
   <script>
-    const totalPages = 12;
-    const book = document.getElementById("book");
-    const pageIndicator = document.getElementById("pageIndicator");
-    const pages = [];
+    /* CONFIG */
+    const totalPages = 48;
+    const BATCH_SIZE = 7; // load 7 at a time
+    const HALF = Math.floor(BATCH_SIZE/2);
+
+    /* STATE */
     let current = 0;
-    let scale = 1;
-    let offsetX = 0, offsetY = 0;
-    let isDragging = false;
-    let startX, startY;
-    let doubleZoomed = false;
-    let currentImg = null;
+    const flipbook = document.getElementById('flipbook');
+    const pageIndicator = document.getElementById('pageIndicator');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const globalLoader = document.getElementById('globalLoader');
+
+    let pages = []; // array of {page,img,zoomLayer,loader,index}
+    const imageCache = new Map(); // index -> {img, width, height}
+
+    // pan/zoom state (for currently visible page)
+    let scale = 1, offsetX = 0, offsetY = 0;
+    let animFrame = null;
+    let isMousePanning = false; let panStart = {x:0,y:0};
+    let lastTouchDistance = 0; let pinchStartScale = 1;
     let lastTap = 0;
 
-    function createPages() {
-      for (let i = 1; i <= totalPages; i++) {
-        const page = document.createElement("div");
-        page.className = "page";
-        page.style.zIndex = totalPages - i + 1;
+    function srcFor(i){ return page_${String(i+1).padStart(3,'0')}.png; }
 
-        const inner = document.createElement("div");
-        inner.className = "page-inner";
-
-        const img = document.createElement("img");
-        img.src = `page_${String(i).padStart(3, "0")}.png`;
-        img.alt = `Page ${i}`;
-
-        inner.appendChild(img);
-        page.appendChild(inner);
-        book.appendChild(page);
-        pages.push(page);
-      }
-    }
-
-    function showPage(n) {
-      current = Math.max(0, Math.min(n, totalPages - 1));
-      pages.forEach((page, idx) => {
-        if (idx < current) {
-          page.classList.add("flipped");
-        } else {
-          page.classList.remove("flipped");
-        }
+    /* PRELOAD IMAGE (stores in imageCache) */
+    function preloadImage(index){
+      if (index < 0 || index >= totalPages) return Promise.resolve(null);
+      if (imageCache.has(index)) return Promise.resolve(imageCache.get(index));
+      return new Promise(resolve=>{
+        const img = new Image();
+        img.decoding = 'async';
+        img.onload = ()=>{
+          const entry = {img, width: img.naturalWidth, height: img.naturalHeight};
+          imageCache.set(index, entry);
+          resolve(entry);
+        };
+        img.onerror = ()=>resolve(null);
+        img.src = srcFor(index);
       });
-      pageIndicator.textContent = `Page ${current + 1}/${totalPages}`;
-      currentImg = pages[current].querySelector("img");
+    }
+
+    /* Create DOM page shell (image will be set after preload) */
+    function createPage(index){
+      const page = document.createElement('div');
+      page.className = 'page';
+      page.dataset.index = index;
+
+      const zoomLayer = document.createElement('div');
+      zoomLayer.className = 'zoom-layer';
+
+      const img = document.createElement('img');
+      img.alt = Page ${index+1};
+      img.draggable = false;
+
+      const loader = document.createElement('div');
+      loader.className = 'page-loader';
+      loader.textContent = 'Loading…';
+
+      zoomLayer.appendChild(img);
+      page.appendChild(zoomLayer);
+      page.appendChild(loader);
+      return {page, img, zoomLayer, loader, index};
+    }
+
+    /* Load a batch centered on centerIndex */
+    async function loadBatch(centerIndex){
+      globalLoader.style.display = 'flex';
+      const start = Math.max(0, centerIndex - HALF);
+      const end = Math.min(totalPages - 1, centerIndex + HALF);
+
+      // remove old DOM pages to free memory
+      flipbook.innerHTML = '';
+      pages = [];
+
+      // create shells and append
+      for (let i = start; i <= end; i++){
+        const shell = createPage(i);
+        flipbook.appendChild(shell.page);
+        pages.push(shell);
+      }
+
+      // preload images in parallel (but small batch so ok)
+      const tasks = pages.map(p => preloadImage(p.index).then(entry=>{
+        if (!entry) return;
+        p.img.src = entry.img.src; // use cached blob
+        p.img.style.opacity = '1';
+        p.loader.style.display = 'none';
+      }));
+
+      await Promise.all(tasks);
+      // reset zoom for newly loaded set
       resetPanZoom();
+      globalLoader.style.display = 'none';
+      showPage(centerIndex, true);
+      // keep a small prefetch of nearby images (not in DOM)
+      if (end + 1 < totalPages) preloadImage(end+1);
+      if (start - 1 >= 0) preloadImage(start-1);
+
+      // free very far cached images to avoid memory explosion (optional)
+      for (const k of Array.from(imageCache.keys())){
+        if (Math.abs(k - centerIndex) > 12) imageCache.delete(k);
+      }
     }
 
-    function flipWithAnimation(nextPage) {
-      if (nextPage < 0 || nextPage >= totalPages) return;
-      const page = pages[current];
-      page.classList.add("turning");
-      setTimeout(() => {
-        page.classList.remove("turning");
-        showPage(nextPage);
-      }, 1000); // match animation duration
+    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+    /* Apply transform to current page's zoomLayer */
+    function scheduleTransform(){
+      if (animFrame) return;
+      animFrame = requestAnimationFrame(()=>{
+        animFrame = null;
+        const cur = getCurrentShell();
+        if (!cur) return;
+        cur.zoomLayer.style.transform = translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale});
+      });
     }
 
-    function resetPanZoom() {
-      offsetX = 0;
-      offsetY = 0;
-      scale = 1;
-      doubleZoomed = false;
-      applyZoom();
+    function resetPanZoom(){ scale = 1; offsetX = 0; offsetY = 0; scheduleTransform(); }
+
+    function getCurrentShell(){
+      return pages.find(p => +p.page.dataset.index === current);
     }
 
-    function applyZoom() {
-      if (!currentImg) return;
-      currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
+    /* Clamp offsets so image can't be dragged out of reasonable bounds */
+    function clampOffsets(){
+      const entry = imageCache.get(current);
+      const shell = getCurrentShell();
+      if (!entry || !shell) return;
+      const container = shell.page.getBoundingClientRect();
+      const iw = entry.width, ih = entry.height;
+      const cw = container.width, ch = container.height;
+      const ratio = Math.min(cw/iw, ch/ih);
+      const displayW = iw * ratio * scale;
+      const displayH = ih * ratio * scale;
+      const maxX = Math.max(0,(displayW - cw)/2);
+      const maxY = Math.max(0,(displayH - ch)/2);
+      offsetX = clamp(offsetX, -maxX, maxX);
+      offsetY = clamp(offsetY, -maxY, maxY);
     }
 
-    // Flip via arrows
-    document.querySelector(".arrow.right").addEventListener("click", () => {
-      if (current < totalPages - 1) flipWithAnimation(current + 1);
+    /* Zoom helper (keeps offsets scaled) */
+    function zoomTo(newScale){
+      const old = scale;
+      newScale = clamp(newScale, 1, 4);
+      if (Math.abs(newScale - old) < 0.0001) return;
+      // preserve pan proportionally
+      offsetX = offsetX * (newScale/old);
+      offsetY = offsetY * (newScale/old);
+      scale = newScale;
+      clampOffsets();
+      scheduleTransform();
+    }
+
+    /* Navigation */
+    function showPage(n, instant=false){
+      if (n < 0 || n >= totalPages) return;
+      // if this page is not in current DOM batch, load batch
+      if (!pages.find(p => p.index === n)){
+        loadBatch(n);
+        return;
+      }
+      current = n;
+      // set z-index and transform for visual ordering
+      pages.forEach(p=>{
+        const idx = p.index;
+        p.page.style.zIndex = (idx === current ? 100 : 0);
+      });
+      pageIndicator.textContent = Page ${current+1}/${totalPages};
+      resetPanZoom();
+      // Preload neighbors to keep navigation smooth
+      preloadImage(current+1); preloadImage(current-1);
+    }
+
+    /* UI controls */
+    prevBtn.addEventListener('click', ()=> showPage(current-1));
+    nextBtn.addEventListener('click', ()=> showPage(current+1));
+    fullscreenBtn.addEventListener('click', async ()=>{
+      try{
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+        else await document.exitFullscreen();
+      } catch(e){ console.warn('fullscreen error', e); }
     });
 
-    document.querySelector(".arrow.left").addEventListener("click", () => {
-      if (current > 0) flipWithAnimation(current - 1);
+    /* Reparent controls to fullscreen element to ensure clicks work there */
+    document.addEventListener('fullscreenchange', ()=>{
+      const host = document.fullscreenElement || document.body;
+      const controls = document.querySelector('.controls');
+      if (controls && controls.parentNode !== host) host.appendChild(controls);
+      // keep globalLoader on top
+      if (globalLoader.parentNode !== document.body) document.body.appendChild(globalLoader);
     });
 
-    // Double-tap to zoom
-    document.addEventListener("touchstart", (e) => {
-      if (e.target.closest('.arrow')) return;
-      const now = Date.now();
-      if (now - lastTap < 300 && e.touches.length === 1) {
-        scale = doubleZoomed ? 1 : 2;
-        offsetX = 0;
-        offsetY = 0;
-        doubleZoomed = !doubleZoomed;
-        applyZoom();
-        e.preventDefault();
+    /* Pointer/mouse panning */
+    flipbook.addEventListener('pointerdown', (e)=>{
+      // if right/ctrl click ignore
+      if (e.button !== 0) return;
+      const shell = getCurrentShell(); if (!shell) return;
+      // start pan only if zoomed or if we want to detect swipe
+      if (scale > 1){
+        isMousePanning = true; panStart.x = e.clientX; panStart.y = e.clientY; e.preventDefault();
+      } else {
+        // record for swipe detection
+        panStart.x = e.clientX; panStart.y = e.clientY; isMousePanning = false;
       }
-      lastTap = now;
-      const touch = e.touches[0];
-      startX = touch.clientX;
-      startY = touch.clientY;
-      isDragging = false;
-    }, { passive: false });
-
-    document.addEventListener("touchmove", (e) => {
-      if (!currentImg || e.touches.length !== 1) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      if (scale > 1) {
-        offsetX += dx;
-        offsetY += dy;
-        applyZoom();
-        startX = touch.clientX;
-        startY = touch.clientY;
-        isDragging = true;
-        e.preventDefault();
+      flipbook.setPointerCapture(e.pointerId);
+    });
+    window.addEventListener('pointermove', (e)=>{
+      if (!isMousePanning) return;
+      const dx = e.clientX - panStart.x; const dy = e.clientY - panStart.y;
+      panStart.x = e.clientX; panStart.y = e.clientY;
+      offsetX += dx; offsetY += dy; clampOffsets(); scheduleTransform();
+    });
+    window.addEventListener('pointerup', (e)=>{
+      try{ flipbook.releasePointerCapture(e.pointerId); }catch(_){}
+      if (!isMousePanning && scale ===1){
+        // mouse swipe when not zoomed
+        const dx = e.clientX - panStart.x; const dy = e.clientY - panStart.y;
+        if (Math.abs(dx) > 100 && Math.abs(dx) > Math.abs(dy)){
+          if (dx < 0) showPage(current+1); else showPage(current-1);
+        }
       }
-    }, { passive: false });
+      isMousePanning = false;
+    });
 
-    document.addEventListener("touchend", (e) => {
-      if (!isDragging && scale === 1 && e.changedTouches.length === 1) {
-        const touch = e.changedTouches[0];
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-          if (dx < 0 && current < totalPages - 1) {
-            flipWithAnimation(current + 1);
-          } else if (dx > 0 && current > 0) {
-            flipWithAnimation(current - 1);
+    /* Mouse wheel zoom (works in fullscreen too) - Ctrl/Cmd + wheel or plain wheel if over image */
+    flipbook.addEventListener('wheel', (e)=>{
+      // if user holds ctrl/cmd or just uses wheel over the flipbook, perform zoom
+      if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) > 0){
+        e.preventDefault();
+        const delta = -e.deltaY; // wheel up => positive
+        const zoomFactor = delta > 0 ? 1.08 : 0.925;
+        zoomTo(scale * zoomFactor);
+      }
+    }, {passive:false});
+
+    /* Double-click / double-tap to toggle zoom */
+    flipbook.addEventListener('dblclick', ()=>{
+      zoomTo(scale > 1 ? 1 : 2);
+    });
+
+    // touch: double-tap, pan & pinch
+    flipbook.addEventListener('touchstart', (e)=>{
+      if (e.touches.length === 1){
+        const now = Date.now();
+        if (now - lastTap < 300){ // double-tap
+          zoomTo(scale > 1 ? 1 : 2);
+          lastTap = 0;
+          e.preventDefault();
+        } else {
+          lastTap = now;
+          panStart.x = e.touches[0].clientX; panStart.y = e.touches[0].clientY;
+          isMousePanning = false;
+        }
+      } else if (e.touches.length === 2){
+        // pinch start
+        lastTouchDistance = distance(e.touches[0], e.touches[1]);
+        pinchStartScale = scale;
+      }
+    }, {passive:false});
+
+    flipbook.addEventListener('touchmove', (e)=>{
+      if (e.touches.length === 1){
+        const t = e.touches[0];
+        const dx = t.clientX - panStart.x, dy = t.clientY - panStart.y;
+        if (scale > 1){ offsetX += dx; offsetY += dy; clampOffsets(); scheduleTransform(); isMousePanning = true; }
+        panStart.x = t.clientX; panStart.y = t.clientY;
+      } else if (e.touches.length === 2){
+        e.preventDefault(); // pinch
+        const d = distance(e.touches[0], e.touches[1]);
+        const ratio = d / lastTouchDistance;
+        scale = clamp(pinchStartScale * ratio, 1, 4);
+        clampOffsets(); scheduleTransform();
+      }
+    }, {passive:false});
+
+    flipbook.addEventListener('touchend', (e)=>{
+      if (e.touches.length === 0){
+        if (!isMousePanning && scale === 1 && e.changedTouches.length === 1){
+          const t = e.changedTouches[0];
+          const dx = t.clientX - panStart.x, dy = t.clientY - panStart.y;
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)){
+            if (dx < 0) showPage(current+1); else showPage(current-1);
           }
         }
-      }
-      isDragging = false;
-    });
-
-    // Desktop drag for zoomed images
-    document.addEventListener("mousedown", (e) => {
-      if (scale <= 1 || !currentImg || e.target.closest(".arrow")) return;
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-    });
-
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging || scale <= 1 || !currentImg) return;
-      offsetX += e.clientX - startX;
-      offsetY += e.clientY - startY;
-      startX = e.clientX;
-      startY = e.clientY;
-      applyZoom();
-    });
-
-    document.addEventListener("mouseup", () => {
-      isDragging = false;
-    });
-
-    // Fullscreen toggle
-    document.getElementById("fullscreenBtn").addEventListener("click", () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
+        isMousePanning = false;
       }
     });
 
-    createPages();
-    showPage(0);
+    function distance(a,b){ const dx=a.clientX-b.clientX; const dy=a.clientY-b.clientY; return Math.hypot(dx,dy); }
+
+    /* keyboard navigation */
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') showPage(current+1);
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') showPage(current-1);
+      if (e.key === '+' || (e.key === '=' && (e.ctrlKey || e.metaKey))) zoomTo(scale * 1.2);
+      if (e.key === '-' || (e.key === '_' && (e.ctrlKey || e.metaKey))) zoomTo(scale / 1.2);
+    });
+
+    /* initial load */
+    preloadImage(0).then(()=> loadBatch(0));
+
+    // expose for debugging
+    window.flipbook = { showPage, loadBatch, zoomTo };
   </script>
 </body>
 </html>
