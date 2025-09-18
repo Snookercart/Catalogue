@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Catalogue Flipbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
@@ -53,6 +53,7 @@
       pointer-events: auto;
       transition: transform 0.2s ease;
       cursor: default;
+      touch-action: none; /* important for touch gestures */
     }
 
     .arrow {
@@ -82,30 +83,6 @@
     .arrow.left { left: 10px; }
     .arrow.right { right: 10px; }
 
-    .controls {
-      position: fixed;
-      bottom: 15px;
-      right: 15px;
-      display: flex;
-      gap: 8px;
-      z-index: 300;
-    }
-
-    .btn {
-      padding: 6px 12px;
-      border: none;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      font-size: 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    .btn:hover {
-      background: rgba(0,0,0,0.9);
-    }
-
     #pageIndicator {
       position: fixed;
       bottom: 15px;
@@ -116,6 +93,10 @@
       border-radius: 6px;
       font-size: 14px;
       z-index: 300;
+    }
+
+    .controls {
+      display: none; /* hide zoom/reset buttons as requested */
     }
   </style>
 </head>
@@ -129,14 +110,6 @@
   <!-- Page Indicator -->
   <div id="pageIndicator">Page 1/10</div>
 
-  <!-- Controls -->
-  <div class="controls">
-    <button class="btn" id="resetZoom">Reset</button>
-    <button class="btn" id="zoomIn">+</button>
-    <button class="btn" id="zoomOut">-</button>
-    <button class="btn" id="fullscreen">Fullscreen</button>
-  </div>
-
   <script>
     const totalPages = 10;
     const book = document.getElementById("book");
@@ -144,12 +117,20 @@
     const pages = [];
     let current = 0;
     let scale = 1;
-    const zoomStep = 0.3;
     let offsetX = 0, offsetY = 0;
     let isDragging = false;
     let startX, startY;
     let doubleZoomed = false;
     let currentImg = null;
+
+    // For detecting double-tap on mobile
+    let lastTap = 0;
+
+    // Touch swipe detection variables
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
 
     function createPages() {
       for (let i = 1; i <= totalPages; i++) {
@@ -202,30 +183,6 @@
       doubleZoomed = false;
     }
 
-    // Controls
-    document.getElementById("zoomIn").addEventListener("click", () => {
-      scale = Math.min(scale + zoomStep, 4);
-      applyZoom();
-    });
-
-    document.getElementById("zoomOut").addEventListener("click", () => {
-      scale = Math.max(scale - zoomStep, 1);
-      applyZoom();
-    });
-
-    document.getElementById("resetZoom").addEventListener("click", () => {
-      resetPanZoom();
-      applyZoom();
-    });
-
-    document.getElementById("fullscreen").addEventListener("click", () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    });
-
     // Arrow navigation
     document.querySelector(".arrow.right").addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
@@ -235,7 +192,7 @@
       if (current > 0) showPage(current - 1);
     });
 
-    // Drag logic (applies even in fullscreen)
+    // Drag logic for pan
     document.addEventListener("mousedown", (e) => {
       if (scale <= 1 || !currentImg) return;
       isDragging = true;
@@ -259,43 +216,110 @@
       updateImageTransform();
     });
 
-    // Touch support
+    // Touch pan + swipe + double tap support
     document.addEventListener("touchstart", (e) => {
-      if (scale <= 1 || !currentImg) return;
+      if (!currentImg) return;
       const touch = e.touches[0];
-      isDragging = true;
       startX = touch.clientX;
       startY = touch.clientY;
-    });
 
-    document.addEventListener("touchend", () => {
-      isDragging = false;
-    });
+      // Detect double tap
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTap;
+      if (tapLength < 300 && tapLength > 0) {
+        // Double tap detected - toggle zoom
+        if (!doubleZoomed) {
+          scale = 2;
+        } else {
+          scale = 1;
+          offsetX = 0;
+          offsetY = 0;
+        }
+        doubleZoomed = !doubleZoomed;
+        applyZoom();
+        e.preventDefault();
+      }
+      lastTap = currentTime;
 
-    document.addEventListener("touchmove", (e) => {
-      if (!isDragging || scale <= 1 || !currentImg) return;
-      const touch = e.touches[0];
-      offsetX += touch.clientX - startX;
-      offsetY += touch.clientY - startY;
-      startX = touch.clientX;
-      startY = touch.clientY;
-      updateImageTransform();
-      e.preventDefault();
+      // For swipe detection
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+
+      // For pan drag detection
+      isDragging = scale > 1;
     }, { passive: false });
 
-    // Double-click to zoom toggle
-    document.addEventListener("dblclick", (e) => {
+    document.addEventListener("touchmove", (e) => {
       if (!currentImg) return;
-      if (!doubleZoomed) {
-        scale = 2;
+      const touch = e.touches[0];
+
+      if (isDragging && scale > 1) {
+        offsetX += touch.clientX - startX;
+        offsetY += touch.clientY - startY;
+        startX = touch.clientX;
+        startY = touch.clientY;
+        updateImageTransform();
+        e.preventDefault();
       } else {
-        resetPanZoom();
+        // Track swipe move only if not zoomed (to avoid conflict)
+        touchEndX = touch.clientX;
+        touchEndY = touch.clientY;
       }
-      doubleZoomed = !doubleZoomed;
-      applyZoom();
+    }, { passive: false });
+
+    document.addEventListener("touchend", (e) => {
+      if (!currentImg) return;
+      isDragging = false;
+
+      // Swipe detection threshold
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      // Only consider horizontal swipe if horizontal movement is greater than vertical and threshold
+      if (absDeltaX > 50 && absDeltaX > absDeltaY) {
+        if (deltaX < 0) {
+          // Swipe left -> next page
+          if (current < totalPages - 1) showPage(current + 1);
+        } else {
+          // Swipe right -> prev page
+          if (current > 0) showPage(current - 1);
+        }
+      }
+      // Reset swipe positions
+      touchStartX = 0;
+      touchStartY = 0;
+      touchEndX = 0;
+      touchEndY = 0;
     });
 
-    // Fullscreen change listener — reapply transform
+    // Fullscreen button + reapply zoom on fullscreen change
+    const fullscreenBtn = document.createElement("button");
+    fullscreenBtn.textContent = "Fullscreen";
+    fullscreenBtn.style.cssText = `
+      position: fixed;
+      bottom: 15px;
+      right: 15px;
+      padding: 6px 12px;
+      border: none;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 300;
+    `;
+    document.body.appendChild(fullscreenBtn);
+
+    fullscreenBtn.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
     document.addEventListener("fullscreenchange", () => {
       applyZoom();
     });
