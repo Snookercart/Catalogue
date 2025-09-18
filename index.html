@@ -149,6 +149,7 @@
     let isDragging = false;
     let startX, startY;
     let doubleZoomed = false;
+    let currentImg = null;
 
     function createPages() {
       for (let i = 1; i <= totalPages; i++) {
@@ -176,30 +177,32 @@
         page.classList.toggle("flipped", idx < current);
       });
       pageIndicator.textContent = `Page ${current + 1}/${totalPages}`;
+      currentImg = pages[current].querySelector("img");
       resetPanZoom();
       applyZoom();
-      makeDraggable(pages[current].querySelector("img"));
     }
 
     function applyZoom() {
-      const img = pages[current].querySelector("img");
-      updateImageTransform(img);
+      updateImageTransform();
     }
 
-    function updateImageTransform(img) {
-      const maxOffset = 300 * (scale - 1); // Max drag limit
+    function updateImageTransform() {
+      if (!currentImg) return;
+      const maxOffset = 300 * (scale - 1);
       offsetX = Math.max(Math.min(offsetX, maxOffset), -maxOffset);
       offsetY = Math.max(Math.min(offsetY, maxOffset), -maxOffset);
-
-      img.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
-      img.style.cursor = scale > 1 ? "grab" : "default";
+      currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
+      currentImg.style.cursor = scale > 1 ? "grab" : "default";
     }
 
     function resetPanZoom() {
       offsetX = 0;
       offsetY = 0;
+      scale = 1;
+      doubleZoomed = false;
     }
 
+    // Controls
     document.getElementById("zoomIn").addEventListener("click", () => {
       scale = Math.min(scale + zoomStep, 4);
       applyZoom();
@@ -211,7 +214,6 @@
     });
 
     document.getElementById("resetZoom").addEventListener("click", () => {
-      scale = 1;
       resetPanZoom();
       applyZoom();
     });
@@ -224,6 +226,7 @@
       }
     });
 
+    // Arrow navigation
     document.querySelector(".arrow.right").addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
@@ -232,68 +235,72 @@
       if (current > 0) showPage(current - 1);
     });
 
-    function makeDraggable(img) {
-      img.onmousedown = (e) => {
-        if (scale <= 1) return;
-        isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        img.style.cursor = "grabbing";
-        e.preventDefault();
-      };
+    // Drag logic (applies even in fullscreen)
+    document.addEventListener("mousedown", (e) => {
+      if (scale <= 1 || !currentImg) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentImg.style.cursor = "grabbing";
+      e.preventDefault();
+    });
 
-      document.onmouseup = () => {
-        isDragging = false;
-        if (scale > 1) img.style.cursor = "grab";
-      };
+    document.addEventListener("mouseup", () => {
+      if (currentImg) currentImg.style.cursor = "grab";
+      isDragging = false;
+    });
 
-      document.onmousemove = (e) => {
-        if (!isDragging) return;
-        offsetX += e.clientX - startX;
-        offsetY += e.clientY - startY;
-        startX = e.clientX;
-        startY = e.clientY;
-        updateImageTransform(img);
-      };
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging || scale <= 1 || !currentImg) return;
+      offsetX += e.clientX - startX;
+      offsetY += e.clientY - startY;
+      startX = e.clientX;
+      startY = e.clientY;
+      updateImageTransform();
+    });
 
-      // Touch support
-      img.ontouchstart = (e) => {
-        if (scale <= 1) return;
-        isDragging = true;
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-      };
+    // Touch support
+    document.addEventListener("touchstart", (e) => {
+      if (scale <= 1 || !currentImg) return;
+      const touch = e.touches[0];
+      isDragging = true;
+      startX = touch.clientX;
+      startY = touch.clientY;
+    });
 
-      img.ontouchend = () => {
-        isDragging = false;
-      };
+    document.addEventListener("touchend", () => {
+      isDragging = false;
+    });
 
-      img.ontouchmove = (e) => {
-        if (!isDragging) return;
-        const touch = e.touches[0];
-        offsetX += touch.clientX - startX;
-        offsetY += touch.clientY - startY;
-        startX = touch.clientX;
-        startY = touch.clientY;
-        updateImageTransform(img);
-        e.preventDefault();
-      };
+    document.addEventListener("touchmove", (e) => {
+      if (!isDragging || scale <= 1 || !currentImg) return;
+      const touch = e.touches[0];
+      offsetX += touch.clientX - startX;
+      offsetY += touch.clientY - startY;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      updateImageTransform();
+      e.preventDefault();
+    }, { passive: false });
 
-      // Double-click to zoom toggle
-      img.ondblclick = () => {
-        if (!doubleZoomed) {
-          scale = 2;
-        } else {
-          scale = 1;
-          resetPanZoom();
-        }
-        doubleZoomed = !doubleZoomed;
-        applyZoom();
-      };
-    }
+    // Double-click to zoom toggle
+    document.addEventListener("dblclick", (e) => {
+      if (!currentImg) return;
+      if (!doubleZoomed) {
+        scale = 2;
+      } else {
+        resetPanZoom();
+      }
+      doubleZoomed = !doubleZoomed;
+      applyZoom();
+    });
 
-    // Init
+    // Fullscreen change listener — reapply transform
+    document.addEventListener("fullscreenchange", () => {
+      applyZoom();
+    });
+
+    // Initialize
     createPages();
     showPage(0);
   </script>
