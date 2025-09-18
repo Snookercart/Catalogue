@@ -63,7 +63,7 @@
     let lastTouchDistance = 0; let pinchStartScale = 1;
     let lastTap = 0;
 
-    function srcFor(i){ return page_${String(i+1).padStart(3,'0')}.png; }
+    function srcFor(i){ return `page_${String(i+1).padStart(3,'0')}.png`; }
 
     /* PRELOAD IMAGE (stores in imageCache) */
     function preloadImage(index){
@@ -92,7 +92,7 @@
       zoomLayer.className = 'zoom-layer';
 
       const img = document.createElement('img');
-      img.alt = Page ${index+1};
+      img.alt = `Page ${index+1}`;
       img.draggable = false;
 
       const loader = document.createElement('div');
@@ -154,7 +154,7 @@
         animFrame = null;
         const cur = getCurrentShell();
         if (!cur) return;
-        cur.zoomLayer.style.transform = translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale});
+        cur.zoomLayer.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale})`;
       });
     }
 
@@ -208,7 +208,7 @@
         const idx = p.index;
         p.page.style.zIndex = (idx === current ? 100 : 0);
       });
-      pageIndicator.textContent = Page ${current+1}/${totalPages};
+      pageIndicator.textContent = `Page ${current+1}/${totalPages}`;
       resetPanZoom();
       // Preload neighbors to keep navigation smooth
       preloadImage(current+1); preloadImage(current-1);
