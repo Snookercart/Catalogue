@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Catalogue Flipbook (Batched + Zoom + 3D Animation)</title>
+  <title>Catalogue Flipbook (Zoom + 3D Animation)</title>
   <style>
     html,body{height:100%;margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
     #flipbook{position:relative;width:100vw;height:100vh;perspective:2000px;background:#fff;overflow:hidden}
@@ -55,6 +55,7 @@
     let pages = [];
     const imageCache = new Map();
 
+    // pan/zoom state
     let scale = 1, offsetX = 0, offsetY = 0;
     let animFrame = null;
     let isMousePanning = false; let panStart = {x:0,y:0};
@@ -147,6 +148,7 @@
     function resetPanZoom(){ scale = 1; offsetX = 0; offsetY = 0; scheduleTransform(); }
     function getCurrentShell(){ return pages.find(p => +p.page.dataset.index === current); }
 
+    // Navigation + Animation
     function showPage(n, instant=false){
       if (n < 0 || n >= totalPages) return;
       if (!pages.find(p => p.index === n)){ loadBatch(n); return; }
@@ -191,11 +193,133 @@
       if (globalLoader.parentNode !== document.body) document.body.appendChild(globalLoader);
     });
 
-    // keep your pan/zoom/touch/keyboard code the same (not shown fully here to save space)
-    // ...
+    /* ---- Restore full Zoom/Pan/Touch/Keyboard support ---- */
+
+    function clampOffsets(){
+      const entry = imageCache.get(current);
+      const shell = getCurrentShell();
+      if (!entry || !shell) return;
+      const container = shell.page.getBoundingClientRect();
+      const iw = entry.width, ih = entry.height;
+      const cw = container.width, ch = container.height;
+      const ratio = Math.min(cw/iw, ch/ih);
+      const displayW = iw * ratio * scale;
+      const displayH = ih * ratio * scale;
+      const maxX = Math.max(0,(displayW - cw)/2);
+      const maxY = Math.max(0,(displayH - ch)/2);
+      offsetX = clamp(offsetX, -maxX, maxX);
+      offsetY = clamp(offsetY, -maxY, maxY);
+    }
+
+    function zoomTo(newScale){
+      const old = scale;
+      newScale = clamp(newScale, 1, 4);
+      if (Math.abs(newScale - old) < 0.0001) return;
+      offsetX = offsetX * (newScale/old);
+      offsetY = offsetY * (newScale/old);
+      scale = newScale;
+      clampOffsets();
+      scheduleTransform();
+    }
+
+    // Pointer/mouse panning
+    flipbook.addEventListener('pointerdown', (e)=>{
+      if (e.button !== 0) return;
+      const shell = getCurrentShell(); if (!shell) return;
+      if (scale > 1){
+        isMousePanning = true; panStart.x = e.clientX; panStart.y = e.clientY; e.preventDefault();
+      } else {
+        panStart.x = e.clientX; panStart.y = e.clientY; isMousePanning = false;
+      }
+      flipbook.setPointerCapture(e.pointerId);
+    });
+    window.addEventListener('pointermove', (e)=>{
+      if (!isMousePanning) return;
+      const dx = e.clientX - panStart.x; const dy = e.clientY - panStart.y;
+      panStart.x = e.clientX; panStart.y = e.clientY;
+      offsetX += dx; offsetY += dy; clampOffsets(); scheduleTransform();
+    });
+    window.addEventListener('pointerup', (e)=>{
+      try{ flipbook.releasePointerCapture(e.pointerId); }catch(_){}
+      if (!isMousePanning && scale ===1){
+        const dx = e.clientX - panStart.x; const dy = e.clientY - panStart.y;
+        if (Math.abs(dx) > 100 && Math.abs(dx) > Math.abs(dy)){
+          if (dx < 0) showPage(current+1); else showPage(current-1);
+        }
+      }
+      isMousePanning = false;
+    });
+
+    // Mouse wheel zoom
+    flipbook.addEventListener('wheel', (e)=>{
+      if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) > 0){
+        e.preventDefault();
+        const delta = -e.deltaY;
+        const zoomFactor = delta > 0 ? 1.08 : 0.925;
+        zoomTo(scale * zoomFactor);
+      }
+    }, {passive:false});
+
+    // Double-click zoom
+    flipbook.addEventListener('dblclick', ()=>{ zoomTo(scale > 1 ? 1 : 2); });
+
+    // Touch zoom/pan
+    flipbook.addEventListener('touchstart', (e)=>{
+      if (e.touches.length === 1){
+        const now = Date.now();
+        if (now - lastTap < 300){
+          zoomTo(scale > 1 ? 1 : 2);
+          lastTap = 0;
+          e.preventDefault();
+        } else {
+          lastTap = now;
+          panStart.x = e.touches[0].clientX; panStart.y = e.touches[0].clientY;
+          isMousePanning = false;
+        }
+      } else if (e.touches.length === 2){
+        lastTouchDistance = distance(e.touches[0], e.touches[1]);
+        pinchStartScale = scale;
+      }
+    }, {passive:false});
+    flipbook.addEventListener('touchmove', (e)=>{
+      if (e.touches.length === 1){
+        const t = e.touches[0];
+        const dx = t.clientX - panStart.x, dy = t.clientY - panStart.y;
+        if (scale > 1){ offsetX += dx; offsetY += dy; clampOffsets(); scheduleTransform(); isMousePanning = true; }
+        panStart.x = t.clientX; panStart.y = t.clientY;
+      } else if (e.touches.length === 2){
+        e.preventDefault();
+        const d = distance(e.touches[0], e.touches[1]);
+        const ratio = d / lastTouchDistance;
+        scale = clamp(pinchStartScale * ratio, 1, 4);
+        clampOffsets(); scheduleTransform();
+      }
+    }, {passive:false});
+    flipbook.addEventListener('touchend', (e)=>{
+      if (e.touches.length === 0){
+        if (!isMousePanning && scale === 1 && e.changedTouches.length === 1){
+          const t = e.changedTouches[0];
+          const dx = t.clientX - panStart.x, dy = t.clientY - panStart.y;
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)){
+            if (dx < 0) showPage(current+1); else showPage(current-1);
+          }
+        }
+        isMousePanning = false;
+      }
+    });
+
+    function distance(a,b){ const dx=a.clientX-b.clientX; const dy=a.clientY-b.clientY; return Math.hypot(dx,dy); }
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') showPage(current+1);
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') showPage(current-1);
+      if (e.key === '+' || (e.key === '=' && (e.ctrlKey || e.metaKey))) zoomTo(scale * 1.2);
+      if (e.key === '-' || (e.key === '_' && (e.ctrlKey || e.metaKey))) zoomTo(scale / 1.2);
+    });
 
     preloadImage(0).then(()=> loadBatch(0));
-    window.flipbook = { showPage, loadBatch };
+    window.flipbook = { showPage, loadBatch, zoomTo };
   </script>
 </body>
 </html>
