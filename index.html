@@ -2,18 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Catalogue Flipbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icon-192.png" type="image/png" />
+  <title>Catalogue Flipbook</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      overflow: hidden;
       background: #f4f4f4;
       font-family: Arial, sans-serif;
-      overflow: hidden;
     }
 
     #book {
@@ -22,7 +20,6 @@
       height: 100vh;
       perspective: 2000px;
       overflow: hidden;
-      display: none; /* hide until loaded */
     }
 
     .page {
@@ -32,8 +29,8 @@
       transform-origin: left center;
       transform-style: preserve-3d;
       transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
-      box-shadow: 0 0 20px rgba(0,0,0,0.25);
       background: white;
+      box-shadow: 0 0 20px rgba(0,0,0,0.25);
     }
 
     .page.flipped {
@@ -54,10 +51,8 @@
       object-fit: contain;
       user-select: none;
       pointer-events: auto;
-      cursor: default;
       touch-action: none;
       transform-origin: center center;
-      will-change: transform;
       backface-visibility: hidden;
     }
 
@@ -78,17 +73,15 @@
       z-index: 200;
       user-select: none;
       transition: 0.3s;
-      pointer-events: auto;
-      display: none; /* hide until loaded */
     }
-
-    .arrow.left { left: 10px; }
-    .arrow.right { right: 10px; }
 
     .arrow:hover {
       background: rgba(0,0,0,0.8);
       color: #fff;
     }
+
+    .arrow.left { left: 10px; }
+    .arrow.right { right: 10px; }
 
     #pageIndicator {
       position: fixed;
@@ -101,7 +94,6 @@
       font-size: 14px;
       z-index: 300;
       pointer-events: none;
-      display: none;
     }
 
     #fullscreenBtn {
@@ -116,67 +108,39 @@
       border-radius: 6px;
       cursor: pointer;
       z-index: 300;
-      display: none;
     }
 
-    #loadingOverlay {
+    #loader {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100vw;
-      height: 100vh;
+      right: 0;
+      bottom: 0;
       background: white;
       display: flex;
-      justify-content: center;
       align-items: center;
-      z-index: 9999;
-      flex-direction: column;
-    }
-
-    .spinner {
-      border: 8px solid #f3f3f3;
-      border-top: 8px solid #555;
-      border-radius: 50%;
-      width: 60px;
-      height: 60px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 10px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    #loadingText {
-      font-size: 16px;
-      color: #555;
+      justify-content: center;
+      z-index: 999;
+      font-size: 18px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div id="loadingOverlay">
-    <div class="spinner"></div>
-    <div id="loadingText">Loading catalogue... (0 / 48)</div>
-  </div>
-
+  <div id="loader">Loading pages...</div>
   <div id="book"></div>
+
   <div class="arrow left">&#8249;</div>
   <div class="arrow right">&#8250;</div>
+
   <div id="pageIndicator">Page 1/48</div>
   <button id="fullscreenBtn">Fullscreen</button>
 
   <script>
     const totalPages = 48;
-    const batchSize = 6;  // load 6 images at a time
     const book = document.getElementById("book");
     const pageIndicator = document.getElementById("pageIndicator");
-    const loadingOverlay = document.getElementById("loadingOverlay");
-    const loadingText = document.getElementById("loadingText");
-    const leftArrow = document.querySelector(".arrow.left");
-    const rightArrow = document.querySelector(".arrow.right");
-    const fullscreenBtn = document.getElementById("fullscreenBtn");
-
+    const loader = document.getElementById("loader");
     const pages = [];
     let current = 0;
     let scale = 1;
@@ -186,49 +150,7 @@
     let doubleZoomed = false;
     let currentImg = null;
     let lastTap = 0;
-
-    // Preload in batches
-    function preloadImagesInBatches() {
-      return new Promise((resolve, reject) => {
-        let loadedCount = 0;
-
-        function loadBatch(startIndex) {
-          const endIndex = Math.min(startIndex + batchSize, totalPages);
-          let batchPromises = [];
-
-          for (let i = startIndex; i < endIndex; i++) {
-            batchPromises.push(new Promise((res, rej) => {
-              const img = new Image();
-              const idx = i + 1;
-              const name = `page_${String(idx).padStart(3, "0")}.png`;
-              img.src = name;
-              img.onload = () => {
-                loadedCount++;
-                loadingText.textContent = `Loading catalogue... (${loadedCount} / ${totalPages})`;
-                res();
-              };
-              img.onerror = () => {
-                console.warn(`Failed to load ${name}`);
-                loadedCount++;
-                loadingText.textContent = `Loading catalogue... (${loadedCount} / ${totalPages})`;
-                res();  // resolve even if error, to not block
-              };
-            }));
-          }
-
-          Promise.all(batchPromises).then(() => {
-            if (endIndex < totalPages) {
-              // next batch
-              setTimeout(() => loadBatch(endIndex), 50); // small delay to give UI breathing
-            } else {
-              resolve();
-            }
-          });
-        }
-
-        loadBatch(0);
-      });
-    }
+    let imagesLoaded = 0;
 
     function createPages() {
       for (let i = 1; i <= totalPages; i++) {
@@ -242,6 +164,13 @@
         const img = document.createElement("img");
         img.src = `page_${String(i).padStart(3, "0")}.png`;
         img.alt = `Page ${i}`;
+        img.onload = () => {
+          imagesLoaded++;
+          if (imagesLoaded === totalPages) {
+            loader.style.display = 'none';
+            showPage(0);
+          }
+        };
 
         inner.appendChild(img);
         page.appendChild(inner);
@@ -273,18 +202,16 @@
       currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
     }
 
-    // Flip only via arrows
-    rightArrow.addEventListener("click", () => {
+    document.querySelector(".arrow.right").addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
-    leftArrow.addEventListener("click", () => {
+
+    document.querySelector(".arrow.left").addEventListener("click", () => {
       if (current > 0) showPage(current - 1);
     });
 
-    // Double-tap to zoom
     document.addEventListener("touchstart", (e) => {
-      if (e.target.closest(".arrow")) return;
-
+      if (e.target.closest('.arrow')) return;
       const now = Date.now();
       if (now - lastTap < 300 && e.touches.length === 1) {
         scale = doubleZoomed ? 1 : 2;
@@ -303,41 +230,32 @@
     }, { passive: false });
 
     document.addEventListener("touchmove", (e) => {
-      if (!currentImg || e.touches.length !== 1) return;
-
+      if (!currentImg || e.touches.length !== 1 || scale <= 1) return;
       const touch = e.touches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-
-      if (scale > 1) {
-        offsetX += dx;
-        offsetY += dy;
-        applyZoom();
-        startX = touch.clientX;
-        startY = touch.clientY;
-        isDragging = true;
-        e.preventDefault();
-      }
+      offsetX += touch.clientX - startX;
+      offsetY += touch.clientY - startY;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      applyZoom();
+      isDragging = true;
+      e.preventDefault();
     }, { passive: false });
 
     document.addEventListener("touchend", (e) => {
       if (!isDragging && scale === 1 && e.changedTouches.length === 1) {
         const touch = e.changedTouches[0];
         const dx = touch.clientX - startX;
-        const dy = touch.changedTouches[0].clientY - startY;
+        const dy = touch.clientY - startY;
 
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-          if (dx < 0 && current < totalPages - 1) {
-            showPage(current + 1);
-          } else if (dx > 0 && current > 0) {
-            showPage(current - 1);
-          }
+          if (dx < 0 && current < totalPages - 1) showPage(current + 1);
+          else if (dx > 0 && current > 0) showPage(current - 1);
         }
       }
       isDragging = false;
     });
 
-    // Desktop drag
+    // Desktop drag zoom
     document.addEventListener("mousedown", (e) => {
       if (scale <= 1 || !currentImg || e.target.closest(".arrow")) return;
       isDragging = true;
@@ -354,12 +272,9 @@
       applyZoom();
     });
 
-    document.addEventListener("mouseup", () => {
-      isDragging = false;
-    });
+    document.addEventListener("mouseup", () => isDragging = false);
 
-    // Fullscreen
-    fullscreenBtn.addEventListener("click", () => {
+    document.getElementById("fullscreenBtn").addEventListener("click", () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
       } else {
@@ -367,30 +282,7 @@
       }
     });
 
-    // Register service worker
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js").then(() => {
-        console.log("✅ Service Worker Registered");
-      }).catch((err) => {
-        console.warn("Service Worker reg failed:", err);
-      });
-    }
-
-    // Initialize
-    preloadImagesInBatches().then(() => {
-      // After all images are preloaded
-      loadingOverlay.style.display = "none";
-      book.style.display = "block";
-      leftArrow.style.display = "block";
-      rightArrow.style.display = "block";
-      pageIndicator.style.display = "block";
-      fullscreenBtn.style.display = "block";
-
-      createPages();
-      showPage(0);
-    }).catch((err) => {
-      loadingText.textContent = `Error loading images: ${err}`;
-    });
+    createPages(); // showPage(0) is called after all images load
   </script>
 </body>
 </html>
