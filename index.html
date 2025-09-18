@@ -7,8 +7,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon-192.png" type="image/png" />
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -23,7 +22,7 @@
       height: 100vh;
       perspective: 2000px;
       overflow: hidden;
-      display: none; /* Hide initially until loaded */
+      display: none; /* hide until loaded */
     }
 
     .page {
@@ -33,13 +32,13 @@
       transform-origin: left center;
       transform-style: preserve-3d;
       transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 0 20px rgba(0,0,0,0.25);
       background: white;
     }
 
     .page.flipped {
       transform: rotateY(-180deg);
-      box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+      box-shadow: -5px 0 20px rgba(0,0,0,0.3);
     }
 
     .page-inner {
@@ -68,8 +67,8 @@
       transform: translateY(-50%);
       font-size: 40px;
       font-weight: bold;
-      color: rgba(0, 0, 0, 0.6);
-      background: rgba(255, 255, 255, 0.8);
+      color: rgba(0,0,0,0.6);
+      background: rgba(255,255,255,0.8);
       border-radius: 50%;
       width: 50px;
       height: 50px;
@@ -80,33 +79,29 @@
       user-select: none;
       transition: 0.3s;
       pointer-events: auto;
-      display: none; /* Hide arrows initially */
+      display: none; /* hide until loaded */
     }
+
+    .arrow.left { left: 10px; }
+    .arrow.right { right: 10px; }
 
     .arrow:hover {
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0,0,0,0.8);
       color: #fff;
-    }
-
-    .arrow.left {
-      left: 10px;
-    }
-    .arrow.right {
-      right: 10px;
     }
 
     #pageIndicator {
       position: fixed;
       bottom: 15px;
       left: 15px;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0,0,0,0.7);
       color: #fff;
       padding: 5px 12px;
       border-radius: 6px;
       font-size: 14px;
       z-index: 300;
       pointer-events: none;
-      display: none; /* Hide initially */
+      display: none;
     }
 
     #fullscreenBtn {
@@ -115,16 +110,15 @@
       right: 15px;
       padding: 6px 12px;
       border: none;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0,0,0,0.7);
       color: white;
       font-size: 14px;
       border-radius: 6px;
       cursor: pointer;
       z-index: 300;
-      display: none; /* Hide initially */
+      display: none;
     }
 
-    /* Loading overlay */
     #loadingOverlay {
       position: fixed;
       top: 0;
@@ -139,7 +133,6 @@
       flex-direction: column;
     }
 
-    /* Spinner styling */
     .spinner {
       border: 8px solid #f3f3f3;
       border-top: 8px solid #555;
@@ -151,12 +144,8 @@
     }
 
     @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     #loadingText {
@@ -168,19 +157,18 @@
 <body>
   <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div id="loadingText">Loading catalogue, please wait...</div>
+    <div id="loadingText">Loading catalogue... (0 / 48)</div>
   </div>
 
   <div id="book"></div>
-
   <div class="arrow left">&#8249;</div>
   <div class="arrow right">&#8250;</div>
-
   <div id="pageIndicator">Page 1/48</div>
   <button id="fullscreenBtn">Fullscreen</button>
 
   <script>
     const totalPages = 48;
+    const batchSize = 6;  // load 6 images at a time
     const book = document.getElementById("book");
     const pageIndicator = document.getElementById("pageIndicator");
     const loadingOverlay = document.getElementById("loadingOverlay");
@@ -192,35 +180,53 @@
     const pages = [];
     let current = 0;
     let scale = 1;
-    let offsetX = 0,
-      offsetY = 0;
+    let offsetX = 0, offsetY = 0;
     let isDragging = false;
     let startX, startY;
     let doubleZoomed = false;
     let currentImg = null;
     let lastTap = 0;
 
-    // Preload all images and track progress
-    function preloadImages() {
+    // Preload in batches
+    function preloadImagesInBatches() {
       return new Promise((resolve, reject) => {
         let loadedCount = 0;
 
-        for (let i = 1; i <= totalPages; i++) {
-          const img = new Image();
-          img.src = `page_${String(i).padStart(3, "0")}.png`;
+        function loadBatch(startIndex) {
+          const endIndex = Math.min(startIndex + batchSize, totalPages);
+          let batchPromises = [];
 
-          img.onload = () => {
-            loadedCount++;
-            loadingText.textContent = `Loading catalogue... (${loadedCount} / ${totalPages})`;
-            if (loadedCount === totalPages) {
+          for (let i = startIndex; i < endIndex; i++) {
+            batchPromises.push(new Promise((res, rej) => {
+              const img = new Image();
+              const idx = i + 1;
+              const name = `page_${String(idx).padStart(3, "0")}.png`;
+              img.src = name;
+              img.onload = () => {
+                loadedCount++;
+                loadingText.textContent = `Loading catalogue... (${loadedCount} / ${totalPages})`;
+                res();
+              };
+              img.onerror = () => {
+                console.warn(`Failed to load ${name}`);
+                loadedCount++;
+                loadingText.textContent = `Loading catalogue... (${loadedCount} / ${totalPages})`;
+                res();  // resolve even if error, to not block
+              };
+            }));
+          }
+
+          Promise.all(batchPromises).then(() => {
+            if (endIndex < totalPages) {
+              // next batch
+              setTimeout(() => loadBatch(endIndex), 50); // small delay to give UI breathing
+            } else {
               resolve();
             }
-          };
-
-          img.onerror = () => {
-            reject(`Failed to load image page_${String(i).padStart(3, "0")}.png`);
-          };
+          });
         }
+
+        loadBatch(0);
       });
     }
 
@@ -271,63 +277,54 @@
     rightArrow.addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
-
     leftArrow.addEventListener("click", () => {
       if (current > 0) showPage(current - 1);
     });
 
-    // Double-tap to zoom on touch devices
-    document.addEventListener(
-      "touchstart",
-      (e) => {
-        if (e.target.closest(".arrow")) return;
+    // Double-tap to zoom
+    document.addEventListener("touchstart", (e) => {
+      if (e.target.closest(".arrow")) return;
 
-        const now = Date.now();
-        if (now - lastTap < 300 && e.touches.length === 1) {
-          scale = doubleZoomed ? 1 : 2;
-          offsetX = 0;
-          offsetY = 0;
-          doubleZoomed = !doubleZoomed;
-          applyZoom();
-          e.preventDefault();
-        }
-        lastTap = now;
+      const now = Date.now();
+      if (now - lastTap < 300 && e.touches.length === 1) {
+        scale = doubleZoomed ? 1 : 2;
+        offsetX = 0;
+        offsetY = 0;
+        doubleZoomed = !doubleZoomed;
+        applyZoom();
+        e.preventDefault();
+      }
+      lastTap = now;
 
-        const touch = e.touches[0];
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      isDragging = false;
+    }, { passive: false });
+
+    document.addEventListener("touchmove", (e) => {
+      if (!currentImg || e.touches.length !== 1) return;
+
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      if (scale > 1) {
+        offsetX += dx;
+        offsetY += dy;
+        applyZoom();
         startX = touch.clientX;
         startY = touch.clientY;
-        isDragging = false;
-      },
-      { passive: false }
-    );
-
-    document.addEventListener(
-      "touchmove",
-      (e) => {
-        if (!currentImg || e.touches.length !== 1) return;
-
-        const touch = e.touches[0];
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-
-        if (scale > 1) {
-          offsetX += dx;
-          offsetY += dy;
-          applyZoom();
-          startX = touch.clientX;
-          startY = touch.clientY;
-          isDragging = true;
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
+        isDragging = true;
+        e.preventDefault();
+      }
+    }, { passive: false });
 
     document.addEventListener("touchend", (e) => {
       if (!isDragging && scale === 1 && e.changedTouches.length === 1) {
         const touch = e.changedTouches[0];
         const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
+        const dy = touch.changedTouches[0].clientY - startY;
 
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
           if (dx < 0 && current < totalPages - 1) {
@@ -340,7 +337,7 @@
       isDragging = false;
     });
 
-    // Desktop drag for zoomed images
+    // Desktop drag
     document.addEventListener("mousedown", (e) => {
       if (scale <= 1 || !currentImg || e.target.closest(".arrow")) return;
       isDragging = true;
@@ -361,7 +358,7 @@
       isDragging = false;
     });
 
-    // Fullscreen toggle
+    // Fullscreen
     fullscreenBtn.addEventListener("click", () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
@@ -370,33 +367,30 @@
       }
     });
 
-    // Init sequence:
-    // 1) Preload images
-    // 2) Create pages
-    // 3) Show first page
-    // 4) Show UI controls
-    preloadImages()
-      .then(() => {
-        loadingOverlay.style.display = "none";
-        book.style.display = "block";
-        leftArrow.style.display = "block";
-        rightArrow.style.display = "block";
-        pageIndicator.style.display = "block";
-        fullscreenBtn.style.display = "block";
-
-        createPages();
-        showPage(0);
-      })
-      .catch((err) => {
-        loadingText.textContent = `Error loading images: ${err}`;
-      });
-
     // Register service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").then(() => {
         console.log("✅ Service Worker Registered");
+      }).catch((err) => {
+        console.warn("Service Worker reg failed:", err);
       });
     }
+
+    // Initialize
+    preloadImagesInBatches().then(() => {
+      // After all images are preloaded
+      loadingOverlay.style.display = "none";
+      book.style.display = "block";
+      leftArrow.style.display = "block";
+      rightArrow.style.display = "block";
+      pageIndicator.style.display = "block";
+      fullscreenBtn.style.display = "block";
+
+      createPages();
+      showPage(0);
+    }).catch((err) => {
+      loadingText.textContent = `Error loading images: ${err}`;
+    });
   </script>
 </body>
 </html>
