@@ -51,9 +51,17 @@
       object-fit: contain;
       user-select: none;
       pointer-events: auto;
-      transition: transform 0.2s ease;
       cursor: default;
       touch-action: none; /* important for touch gestures */
+      transform-origin: center center;
+      /* Remove transition to prevent flicker */
+      /* transition: transform 0.2s ease; */
+      will-change: transform; /* hint browser for GPU accel */
+      backface-visibility: hidden; /* reduce flickering */
+      -webkit-backface-visibility: hidden;
+      -moz-backface-visibility: hidden;
+      -webkit-transform-style: preserve-3d;
+      -moz-transform-style: preserve-3d;
     }
 
     .arrow {
@@ -96,7 +104,7 @@
     }
 
     .controls {
-      display: none; /* hide zoom/reset buttons as requested */
+      display: none; /* hide zoom/reset buttons */
     }
   </style>
 </head>
@@ -123,14 +131,15 @@
     let doubleZoomed = false;
     let currentImg = null;
 
-    // For detecting double-tap on mobile
     let lastTap = 0;
 
-    // Touch swipe detection variables
     let touchStartX = 0;
     let touchStartY = 0;
     let touchEndX = 0;
     let touchEndY = 0;
+
+    // Use requestAnimationFrame to batch transform updates
+    let pendingAnimationFrame = false;
 
     function createPages() {
       for (let i = 1; i <= totalPages; i++) {
@@ -164,7 +173,12 @@
     }
 
     function applyZoom() {
-      updateImageTransform();
+      if (pendingAnimationFrame) return;
+      pendingAnimationFrame = true;
+      requestAnimationFrame(() => {
+        updateImageTransform();
+        pendingAnimationFrame = false;
+      });
     }
 
     function updateImageTransform() {
@@ -192,7 +206,7 @@
       if (current > 0) showPage(current - 1);
     });
 
-    // Drag logic for pan
+    // Dragging mouse events
     document.addEventListener("mousedown", (e) => {
       if (scale <= 1 || !currentImg) return;
       isDragging = true;
@@ -213,21 +227,20 @@
       offsetY += e.clientY - startY;
       startX = e.clientX;
       startY = e.clientY;
-      updateImageTransform();
+      applyZoom();
     });
 
-    // Touch pan + swipe + double tap support
+    // Touch events: pan, swipe, double-tap
     document.addEventListener("touchstart", (e) => {
       if (!currentImg) return;
       const touch = e.touches[0];
       startX = touch.clientX;
       startY = touch.clientY;
 
-      // Detect double tap
       const currentTime = new Date().getTime();
       const tapLength = currentTime - lastTap;
       if (tapLength < 300 && tapLength > 0) {
-        // Double tap detected - toggle zoom
+        // Double tap toggle zoom
         if (!doubleZoomed) {
           scale = 2;
         } else {
@@ -241,11 +254,9 @@
       }
       lastTap = currentTime;
 
-      // For swipe detection
       touchStartX = touch.clientX;
       touchStartY = touch.clientY;
 
-      // For pan drag detection
       isDragging = scale > 1;
     }, { passive: false });
 
@@ -258,10 +269,9 @@
         offsetY += touch.clientY - startY;
         startX = touch.clientX;
         startY = touch.clientY;
-        updateImageTransform();
+        applyZoom();
         e.preventDefault();
       } else {
-        // Track swipe move only if not zoomed (to avoid conflict)
         touchEndX = touch.clientX;
         touchEndY = touch.clientY;
       }
@@ -271,30 +281,25 @@
       if (!currentImg) return;
       isDragging = false;
 
-      // Swipe detection threshold
       const deltaX = touchEndX - touchStartX;
       const deltaY = touchEndY - touchStartY;
       const absDeltaX = Math.abs(deltaX);
       const absDeltaY = Math.abs(deltaY);
 
-      // Only consider horizontal swipe if horizontal movement is greater than vertical and threshold
       if (absDeltaX > 50 && absDeltaX > absDeltaY) {
         if (deltaX < 0) {
-          // Swipe left -> next page
           if (current < totalPages - 1) showPage(current + 1);
         } else {
-          // Swipe right -> prev page
           if (current > 0) showPage(current - 1);
         }
       }
-      // Reset swipe positions
       touchStartX = 0;
       touchStartY = 0;
       touchEndX = 0;
       touchEndY = 0;
     });
 
-    // Fullscreen button + reapply zoom on fullscreen change
+    // Fullscreen button + listener
     const fullscreenBtn = document.createElement("button");
     fullscreenBtn.textContent = "Fullscreen";
     fullscreenBtn.style.cssText = `
@@ -324,7 +329,7 @@
       applyZoom();
     });
 
-    // Initialize
+    // Init
     createPages();
     showPage(0);
   </script>
