@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Catalogue Flipbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icon-192.png" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" type="image/png" />
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -22,6 +23,7 @@
       height: 100vh;
       perspective: 2000px;
       overflow: hidden;
+      display: none; /* Hide initially until loaded */
     }
 
     .page {
@@ -31,13 +33,13 @@
       transform-origin: left center;
       transform-style: preserve-3d;
       transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
-      box-shadow: 0 0 20px rgba(0,0,0,0.25);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
       background: white;
     }
 
     .page.flipped {
       transform: rotateY(-180deg);
-      box-shadow: -5px 0 20px rgba(0,0,0,0.3);
+      box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
     }
 
     .page-inner {
@@ -66,8 +68,8 @@
       transform: translateY(-50%);
       font-size: 40px;
       font-weight: bold;
-      color: rgba(0,0,0,0.6);
-      background: rgba(255,255,255,0.8);
+      color: rgba(0, 0, 0, 0.6);
+      background: rgba(255, 255, 255, 0.8);
       border-radius: 50%;
       width: 50px;
       height: 50px;
@@ -78,27 +80,33 @@
       user-select: none;
       transition: 0.3s;
       pointer-events: auto;
+      display: none; /* Hide arrows initially */
     }
 
     .arrow:hover {
-      background: rgba(0,0,0,0.8);
+      background: rgba(0, 0, 0, 0.8);
       color: #fff;
     }
 
-    .arrow.left { left: 10px; }
-    .arrow.right { right: 10px; }
+    .arrow.left {
+      left: 10px;
+    }
+    .arrow.right {
+      right: 10px;
+    }
 
     #pageIndicator {
       position: fixed;
       bottom: 15px;
       left: 15px;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: #fff;
       padding: 5px 12px;
       border-radius: 6px;
       font-size: 14px;
       z-index: 300;
       pointer-events: none;
+      display: none; /* Hide initially */
     }
 
     #fullscreenBtn {
@@ -107,16 +115,62 @@
       right: 15px;
       padding: 6px 12px;
       border: none;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       font-size: 14px;
       border-radius: 6px;
       cursor: pointer;
       z-index: 300;
+      display: none; /* Hide initially */
+    }
+
+    /* Loading overlay */
+    #loadingOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      flex-direction: column;
+    }
+
+    /* Spinner styling */
+    .spinner {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #555;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    #loadingText {
+      font-size: 16px;
+      color: #555;
     }
   </style>
 </head>
 <body>
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div id="loadingText">Loading catalogue, please wait...</div>
+  </div>
+
   <div id="book"></div>
 
   <div class="arrow left">&#8249;</div>
@@ -129,15 +183,46 @@
     const totalPages = 48;
     const book = document.getElementById("book");
     const pageIndicator = document.getElementById("pageIndicator");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingText = document.getElementById("loadingText");
+    const leftArrow = document.querySelector(".arrow.left");
+    const rightArrow = document.querySelector(".arrow.right");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+
     const pages = [];
     let current = 0;
     let scale = 1;
-    let offsetX = 0, offsetY = 0;
+    let offsetX = 0,
+      offsetY = 0;
     let isDragging = false;
     let startX, startY;
     let doubleZoomed = false;
     let currentImg = null;
     let lastTap = 0;
+
+    // Preload all images and track progress
+    function preloadImages() {
+      return new Promise((resolve, reject) => {
+        let loadedCount = 0;
+
+        for (let i = 1; i <= totalPages; i++) {
+          const img = new Image();
+          img.src = `page_${String(i).padStart(3, "0")}.png`;
+
+          img.onload = () => {
+            loadedCount++;
+            loadingText.textContent = `Loading catalogue... (${loadedCount} / ${totalPages})`;
+            if (loadedCount === totalPages) {
+              resolve();
+            }
+          };
+
+          img.onerror = () => {
+            reject(`Failed to load image page_${String(i).padStart(3, "0")}.png`);
+          };
+        }
+      });
+    }
 
     function createPages() {
       for (let i = 1; i <= totalPages; i++) {
@@ -182,51 +267,61 @@
       currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
     }
 
-    document.querySelector(".arrow.right").addEventListener("click", () => {
+    // Flip only via arrows
+    rightArrow.addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
 
-    document.querySelector(".arrow.left").addEventListener("click", () => {
+    leftArrow.addEventListener("click", () => {
       if (current > 0) showPage(current - 1);
     });
 
-    document.addEventListener("touchstart", (e) => {
-      if (e.target.closest('.arrow')) return;
+    // Double-tap to zoom on touch devices
+    document.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.target.closest(".arrow")) return;
 
-      const now = Date.now();
-      if (now - lastTap < 300 && e.touches.length === 1) {
-        scale = doubleZoomed ? 1 : 2;
-        offsetX = 0;
-        offsetY = 0;
-        doubleZoomed = !doubleZoomed;
-        applyZoom();
-        e.preventDefault();
-      }
-      lastTap = now;
+        const now = Date.now();
+        if (now - lastTap < 300 && e.touches.length === 1) {
+          scale = doubleZoomed ? 1 : 2;
+          offsetX = 0;
+          offsetY = 0;
+          doubleZoomed = !doubleZoomed;
+          applyZoom();
+          e.preventDefault();
+        }
+        lastTap = now;
 
-      const touch = e.touches[0];
-      startX = touch.clientX;
-      startY = touch.clientY;
-      isDragging = false;
-    }, { passive: false });
-
-    document.addEventListener("touchmove", (e) => {
-      if (!currentImg || e.touches.length !== 1) return;
-
-      const touch = e.touches[0];
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-
-      if (scale > 1) {
-        offsetX += dx;
-        offsetY += dy;
-        applyZoom();
+        const touch = e.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
-        isDragging = true;
-        e.preventDefault();
-      }
-    }, { passive: false });
+        isDragging = false;
+      },
+      { passive: false }
+    );
+
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!currentImg || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        if (scale > 1) {
+          offsetX += dx;
+          offsetY += dy;
+          applyZoom();
+          startX = touch.clientX;
+          startY = touch.clientY;
+          isDragging = true;
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
 
     document.addEventListener("touchend", (e) => {
       if (!isDragging && scale === 1 && e.changedTouches.length === 1) {
@@ -245,6 +340,7 @@
       isDragging = false;
     });
 
+    // Desktop drag for zoomed images
     document.addEventListener("mousedown", (e) => {
       if (scale <= 1 || !currentImg || e.target.closest(".arrow")) return;
       isDragging = true;
@@ -265,7 +361,8 @@
       isDragging = false;
     });
 
-    document.getElementById("fullscreenBtn").addEventListener("click", () => {
+    // Fullscreen toggle
+    fullscreenBtn.addEventListener("click", () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
       } else {
@@ -273,15 +370,33 @@
       }
     });
 
-    // PWA Service Worker Registration
+    // Init sequence:
+    // 1) Preload images
+    // 2) Create pages
+    // 3) Show first page
+    // 4) Show UI controls
+    preloadImages()
+      .then(() => {
+        loadingOverlay.style.display = "none";
+        book.style.display = "block";
+        leftArrow.style.display = "block";
+        rightArrow.style.display = "block";
+        pageIndicator.style.display = "block";
+        fullscreenBtn.style.display = "block";
+
+        createPages();
+        showPage(0);
+      })
+      .catch((err) => {
+        loadingText.textContent = `Error loading images: ${err}`;
+      });
+
+    // Register service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").then(() => {
         console.log("✅ Service Worker Registered");
       });
     }
-
-    createPages();
-    showPage(0);
   </script>
 </body>
 </html>
