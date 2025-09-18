@@ -120,11 +120,11 @@
   <div class="arrow left">&#8249;</div>
   <div class="arrow right">&#8250;</div>
 
-  <div id="pageIndicator">Page 1/10</div>
+  <div id="pageIndicator">Page 1/48</div>
   <button id="fullscreenBtn">Fullscreen</button>
 
   <script>
-    const totalPages = 10;
+    const totalPages = 48;
     const book = document.getElementById("book");
     const pageIndicator = document.getElementById("pageIndicator");
     const pages = [];
@@ -180,7 +180,6 @@
       currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
     }
 
-    // Flip only via arrows
     document.querySelector(".arrow.right").addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
@@ -189,7 +188,6 @@
       if (current > 0) showPage(current - 1);
     });
 
-    // Double-tap to zoom
     document.addEventListener("touchstart", (e) => {
       if (e.target.closest('.arrow')) return;
 
@@ -245,7 +243,6 @@
       isDragging = false;
     });
 
-    // Desktop drag
     document.addEventListener("mousedown", (e) => {
       if (scale <= 1 || !currentImg || e.target.closest(".arrow")) return;
       isDragging = true;
@@ -266,7 +263,6 @@
       isDragging = false;
     });
 
-    // Fullscreen toggle
     document.getElementById("fullscreenBtn").addEventListener("click", () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
