@@ -50,7 +50,7 @@
       height: 100%;
       object-fit: contain;
       user-select: none;
-      pointer-events: none;
+      pointer-events: auto;
       transition: transform 0.2s ease;
       cursor: default;
     }
@@ -145,11 +145,10 @@
     let current = 0;
     let scale = 1;
     const zoomStep = 0.3;
-
-    let offsetX = 0;
-    let offsetY = 0;
+    let offsetX = 0, offsetY = 0;
     let isDragging = false;
     let startX, startY;
+    let doubleZoomed = false;
 
     function createPages() {
       for (let i = 1; i <= totalPages; i++) {
@@ -188,6 +187,10 @@
     }
 
     function updateImageTransform(img) {
+      const maxOffset = 300 * (scale - 1); // Max drag limit
+      offsetX = Math.max(Math.min(offsetX, maxOffset), -maxOffset);
+      offsetY = Math.max(Math.min(offsetY, maxOffset), -maxOffset);
+
       img.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
       img.style.cursor = scale > 1 ? "grab" : "default";
     }
@@ -197,7 +200,6 @@
       offsetY = 0;
     }
 
-    // Zoom controls
     document.getElementById("zoomIn").addEventListener("click", () => {
       scale = Math.min(scale + zoomStep, 4);
       applyZoom();
@@ -214,7 +216,6 @@
       applyZoom();
     });
 
-    // Fullscreen
     document.getElementById("fullscreen").addEventListener("click", () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
@@ -223,7 +224,6 @@
       }
     });
 
-    // Navigation
     document.querySelector(".arrow.right").addEventListener("click", () => {
       if (current < totalPages - 1) showPage(current + 1);
     });
@@ -232,7 +232,6 @@
       if (current > 0) showPage(current - 1);
     });
 
-    // Dragging logic
     function makeDraggable(img) {
       img.onmousedown = (e) => {
         if (scale <= 1) return;
@@ -257,7 +256,7 @@
         updateImageTransform(img);
       };
 
-      // Touch events
+      // Touch support
       img.ontouchstart = (e) => {
         if (scale <= 1) return;
         isDragging = true;
@@ -280,9 +279,21 @@
         updateImageTransform(img);
         e.preventDefault();
       };
+
+      // Double-click to zoom toggle
+      img.ondblclick = () => {
+        if (!doubleZoomed) {
+          scale = 2;
+        } else {
+          scale = 1;
+          resetPanZoom();
+        }
+        doubleZoomed = !doubleZoomed;
+        applyZoom();
+      };
     }
 
-    // Initialize
+    // Init
     createPages();
     showPage(0);
   </script>
