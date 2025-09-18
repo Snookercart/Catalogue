@@ -1,348 +1,193 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Catalogue Flipbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #f4f4f4;
-      font-family: Arial, sans-serif;
-      overflow: hidden;
+<script>
+  const totalPages = 10;
+  const book = document.getElementById("book");
+  const pageIndicator = document.getElementById("pageIndicator");
+  const pages = [];
+  let current = 0;
+  let scale = 1;
+  let offsetX = 0, offsetY = 0;
+  let isDragging = false;
+  let startX, startY;
+  let doubleZoomed = false;
+  let currentImg = null;
+  let lastTap = 0;
+
+  // Create pages
+  function createPages() {
+    for (let i = 1; i <= totalPages; i++) {
+      const page = document.createElement("div");
+      page.className = "page";
+      page.style.zIndex = totalPages - i + 1;
+
+      const inner = document.createElement("div");
+      inner.className = "page-inner";
+
+      const img = document.createElement("img");
+      img.src = `page_${String(i).padStart(3, "0")}.png`;
+      img.alt = `Page ${i}`;
+
+      inner.appendChild(img);
+      page.appendChild(inner);
+      book.appendChild(page);
+      pages.push(page);
     }
+  }
 
-    #book {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      perspective: 2000px;
-      overflow: hidden;
-      /* Allow pointer events so zoom/pan works, but we will suppress flip on most clicks */
-    }
+  // Show page
+  function showPage(n) {
+    current = Math.max(0, Math.min(n, totalPages - 1));
+    pages.forEach((page, idx) => {
+      page.classList.toggle("flipped", idx < current);
+    });
+    pageIndicator.textContent = `Page ${current + 1}/${totalPages}`;
+    currentImg = pages[current].querySelector("img");
+    resetPanZoom();
+    applyZoom();
+  }
 
-    .page {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      transform-origin: left center;
-      transform-style: preserve-3d;
-      transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
-      box-shadow: 0 0 20px rgba(0,0,0,0.25);
-      background: white;
-    }
+  function resetPanZoom() {
+    offsetX = 0;
+    offsetY = 0;
+    scale = 1;
+    doubleZoomed = false;
+    applyZoom();
+  }
 
-    .page.flipped {
-      transform: rotateY(-180deg);
-      box-shadow: -5px 0 20px rgba(0,0,0,0.3);
-    }
+  function applyZoom() {
+    if (!currentImg) return;
+    currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
+  }
 
-    .page-inner {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-      pointer-events: auto; /* allow interaction inside this */
-    }
+  // Arrows only control flipping
+  document.querySelector(".arrow.right").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (current < totalPages - 1) showPage(current + 1);
+  });
 
-    .page-inner img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      user-select: none;
-      pointer-events: auto; /* allow pan/zoom */
-      cursor: default;
-      touch-action: none;
-      transform-origin: center center;
-      will-change: transform;
-      backface-visibility: hidden;
-      -webkit-backface-visibility: hidden;
-      -moz-backface-visibility: hidden;
-      -webkit-transform-style: preserve-3d;
-      -moz-transform-style: preserve-3d;
-    }
+  document.querySelector(".arrow.left").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (current > 0) showPage(current - 1);
+  });
 
-    .arrow {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 40px;
-      font-weight: bold;
-      color: rgba(0,0,0,0.6);
-      background: rgba(255,255,255,0.8);
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      line-height: 50px;
-      text-align: center;
-      cursor: pointer;
-      z-index: 200;
-      user-select: none;
-      transition: 0.3s;
-      pointer-events: auto; /* arrows should capture clicks */
-    }
+  // Double tap for zoom
+  document.addEventListener("touchstart", (e) => {
+    const now = new Date().getTime();
+    const timeSince = now - lastTap;
+    lastTap = now;
 
-    .arrow:hover {
-      background: rgba(0,0,0,0.8);
-      color: #fff;
-    }
+    // Ignore if arrow clicked
+    if (e.target.closest('.arrow')) return;
 
-    .arrow.left { left: 10px; }
-    .arrow.right { right: 10px; }
-
-    #pageIndicator {
-      position: fixed;
-      bottom: 15px;
-      left: 15px;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 14px;
-      z-index: 300;
-      pointer-events: none; /* doesn’t need interaction */
-    }
-  </style>
-</head>
-<body>
-  <div id="book"></div>
-
-  <!-- Arrow Buttons -->
-  <div class="arrow left">&#8249;</div>
-  <div class="arrow right">&#8250;</div>
-
-  <!-- Page Indicator -->
-  <div id="pageIndicator">Page 1/10</div>
-
-  <script>
-    const totalPages = 10;
-    const book = document.getElementById("book");
-    const pageIndicator = document.getElementById("pageIndicator");
-    const pages = [];
-    let current = 0;
-    let scale = 1;
-    let offsetX = 0, offsetY = 0;
-    let isDragging = false;
-    let startX, startY;
-    let doubleZoomed = false;
-    let currentImg = null;
-
-    let lastTap = 0;
-    let touchStartX = 0, touchStartY = 0;
-    let touchEndX = 0, touchEndY = 0;
-
-    let pendingAnimationFrame = false;
-
-    function createPages() {
-      for (let i = 1; i <= totalPages; i++) {
-        const page = document.createElement("div");
-        page.className = "page";
-        page.style.zIndex = totalPages - i + 1;
-
-        const inner = document.createElement("div");
-        inner.className = "page-inner";
-
-        const img = document.createElement("img");
-        img.src = `page_${String(i).padStart(3, "0")}.png`;
-        img.alt = `Page ${i}`;
-
-        inner.appendChild(img);
-        page.appendChild(inner);
-        book.appendChild(page);
-        pages.push(page);
+    // Double tap logic
+    if (timeSince < 300 && e.touches.length === 1) {
+      if (!doubleZoomed) {
+        scale = 2;
+      } else {
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
       }
-    }
-
-    function showPage(n) {
-      current = Math.max(0, Math.min(n, totalPages - 1));
-      pages.forEach((page, idx) => {
-        page.classList.toggle("flipped", idx < current);
-      });
-      pageIndicator.textContent = `Page ${current + 1}/${totalPages}`;
-      currentImg = pages[current].querySelector("img");
-      resetPanZoom();
+      doubleZoomed = !doubleZoomed;
       applyZoom();
+      e.preventDefault();
     }
 
-    function applyZoom() {
-      if (pendingAnimationFrame) return;
-      pendingAnimationFrame = true;
-      requestAnimationFrame(() => {
-        updateImageTransform();
-        pendingAnimationFrame = false;
-      });
-    }
+    // Setup for drag/swipe
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    isDragging = false;
+  }, { passive: false });
 
-    function updateImageTransform() {
-      if (!currentImg) return;
-      const maxOffset = 300 * (scale - 1);
-      offsetX = Math.max(Math.min(offsetX, maxOffset), -maxOffset);
-      offsetY = Math.max(Math.min(offsetY, maxOffset), -maxOffset);
-      currentImg.style.transform = `scale(${scale}) translate(${offsetX / scale}px, ${offsetY / scale}px)`;
-      currentImg.style.cursor = scale > 1 ? "grab" : "default";
-    }
+  // Handle pan/drag/swipe
+  document.addEventListener("touchmove", (e) => {
+    if (!currentImg || e.touches.length !== 1) return;
 
-    function resetPanZoom() {
-      offsetX = 0;
-      offsetY = 0;
-      scale = 1;
-      doubleZoomed = false;
-    }
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
 
-    // Only arrows flip pages
-    document.querySelector(".arrow.right").addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (current < totalPages - 1) showPage(current + 1);
-    });
-
-    document.querySelector(".arrow.left").addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (current > 0) showPage(current - 1);
-    });
-
-    // Mouse dragging for pan
-    document.addEventListener("mousedown", (e) => {
-      if (scale <= 1 || !currentImg) return;
-      // make sure event is not from arrow
-      if (e.target.closest('.arrow')) return;
+    // Pan (when zoomed in)
+    if (scale > 1) {
+      offsetX += dx;
+      offsetY += dy;
+      applyZoom();
       isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      currentImg.style.cursor = "grabbing";
-      e.preventDefault();
-    });
-
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging || scale <= 1 || !currentImg) return;
-      offsetX += e.clientX - startX;
-      offsetY += e.clientY - startY;
-      startX = e.clientX;
-      startY = e.clientY;
-      applyZoom();
-      e.preventDefault();
-    });
-
-    document.addEventListener("mouseup", (e) => {
-      if (currentImg) currentImg.style.cursor = scale > 1 ? "grab" : "default";
-      isDragging = false;
-    });
-
-    // Touch handling: double tap, pan, swipe
-    document.addEventListener("touchstart", (e) => {
-      if (!currentImg) return;
-
-      // if touching arrow, let arrow handle
-      if (e.target.closest('.arrow')) {
-        return;
-      }
-
-      const touch = e.touches[0];
       startX = touch.clientX;
       startY = touch.clientY;
+      e.preventDefault();
+    }
+  }, { passive: false });
 
-      const currentTime = new Date().getTime();
-      const tapLength = currentTime - lastTap;
-      if (tapLength < 300 && tapLength > 0) {
-        // Double tap to toggle zoom
-        if (!doubleZoomed) {
-          scale = 2;
-        } else {
-          scale = 1;
-          offsetX = 0;
-          offsetY = 0;
-        }
-        doubleZoomed = !doubleZoomed;
-        applyZoom();
-        e.preventDefault();
-      }
-      lastTap = currentTime;
+  document.addEventListener("touchend", (e) => {
+    // Swipe only when NOT zoomed in
+    if (!isDragging && scale === 1 && e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
 
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
-
-      isDragging = scale > 1;
-
-    }, { passive: false });
-
-    document.addEventListener("touchmove", (e) => {
-      if (!currentImg) return;
-      const touch = e.touches[0];
-
-      if (isDragging && scale > 1) {
-        offsetX += touch.clientX - startX;
-        offsetY += touch.clientY - startY;
-        startX = touch.clientX;
-        startY = touch.clientY;
-        applyZoom();
-        e.preventDefault();
-      } else {
-        touchEndX = touch.clientX;
-        touchEndY = touch.clientY;
-      }
-    }, { passive: false });
-
-    document.addEventListener("touchend", (e) => {
-      if (!currentImg) return;
-      isDragging = false;
-
-      // Swipe detection
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      const absDeltaX = Math.abs(deltaX);
-      const absDeltaY = Math.abs(deltaY);
-
-      if (absDeltaX > 50 && absDeltaX > absDeltaY) {
-        // Only swipe if not double tap
-        if (deltaX < 0) {
-          if (current < totalPages - 1) showPage(current + 1);
-        } else {
-          if (current > 0) showPage(current - 1);
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0 && current < totalPages - 1) {
+          showPage(current + 1);
+        } else if (dx > 0 && current > 0) {
+          showPage(current - 1);
         }
       }
+    }
 
-      touchStartX = 0;
-      touchStartY = 0;
-      touchEndX = 0;
-      touchEndY = 0;
-    });
+    isDragging = false;
+  });
 
-    // Fullscreen toggle (just optional)
-    const fullscreenBtn = document.createElement("button");
-    fullscreenBtn.textContent = "Fullscreen";
-    fullscreenBtn.style.cssText = `
-      position: fixed;
-      bottom: 15px;
-      right: 15px;
-      padding: 6px 12px;
-      border: none;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      font-size: 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      z-index: 300;
-    `;
-    document.body.appendChild(fullscreenBtn);
+  // Mouse drag for desktop (optional)
+  document.addEventListener("mousedown", (e) => {
+    if (scale <= 1 || !currentImg) return;
+    if (e.target.closest(".arrow")) return;
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    e.preventDefault();
+  });
 
-    fullscreenBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    });
+  document.addEventListener("mousemove", (e) => {
+    if (!isDragging || scale <= 1 || !currentImg) return;
+    offsetX += e.clientX - startX;
+    offsetY += e.clientY - startY;
+    startX = e.clientX;
+    startY = e.clientY;
+    applyZoom();
+    e.preventDefault();
+  });
 
-    // Reapply on fullscreen change
-    document.addEventListener("fullscreenchange", () => {
-      applyZoom();
-    });
+  document.addEventListener("mouseup", () => {
+    isDragging = false;
+  });
 
-    // Init
-    createPages();
-    showPage(0);
-  </script>
-</body>
-</html>
+  // Fullscreen toggle (optional)
+  const fullscreenBtn = document.createElement("button");
+  fullscreenBtn.textContent = "Fullscreen";
+  fullscreenBtn.style.cssText = `
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    padding: 6px 12px;
+    border: none;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 300;
+  `;
+  fullscreenBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  });
+  document.body.appendChild(fullscreenBtn);
+
+  // Init
+  createPages();
+  showPage(0);
+</script>
